@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
 	generatePollId,
-	normalizePollId,
 	isValidPollIdShape,
+	normalizePollId,
 	POLL_ID_ALPHABET,
 	POLL_ID_LENGTH
 } from './ids';

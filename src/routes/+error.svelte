@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 </script>
 
@@ -20,7 +21,7 @@
 		<h1>Something went wrong</h1>
 		<p>{page.error?.message ?? 'Unexpected error.'}</p>
 	{/if}
-	<a class="btn" href="/">Create a poll</a>
+	<a class="btn" href={resolve('/')}>Create a poll</a>
 </div>
 
 <style>

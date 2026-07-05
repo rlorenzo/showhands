@@ -1,27 +1,27 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 process.env.SHOWHANDS_SECRET = 'test-secret-for-unit-tests-only';
 
 import type { Database } from 'better-sqlite3';
+import { GRACE_SECONDS } from '$lib/validation';
 import { createDatabase } from './db';
 import {
-	createPoll,
-	getPoll,
-	getOptions,
+	type CreatePollInput,
 	castVote,
+	closePoll,
+	createPoll,
+	deletePoll,
+	effectiveStatus,
 	getCounts,
 	getDeviceVote,
+	getOptions,
+	getPoll,
 	getVoterNames,
-	closePoll,
-	deletePoll,
-	updateRadius,
-	sweep,
-	effectiveStatus,
-	verifyCreatorToken,
 	resultsPayload,
-	type CreatePollInput
+	sweep,
+	updateRadius,
+	verifyCreatorToken
 } from './polls';
-import { GRACE_SECONDS } from '$lib/validation';
 
 const NOW = 1_800_000_000;
 
@@ -84,7 +84,11 @@ describe('polls', () => {
 	it('counts distinct voters with multi-select votes', () => {
 		const { id } = createPoll(db, makeInput({ allowMulti: true }), NOW);
 		const [a, b] = getOptions(db, id);
-		castVote(db, { pollId: id, deviceHash: 'dev1', optionIds: [a.id, b.id], displayName: null }, NOW);
+		castVote(
+			db,
+			{ pollId: id, deviceHash: 'dev1', optionIds: [a.id, b.id], displayName: null },
+			NOW
+		);
 		castVote(db, { pollId: id, deviceHash: 'dev2', optionIds: [a.id], displayName: null }, NOW);
 		const { counts, total } = getCounts(db, id);
 		expect(total).toBe(2);
@@ -124,7 +128,11 @@ describe('polls', () => {
 		const { id: fresh } = createPoll(db, makeInput({ expiresInSeconds: 7200 }), NOW);
 		const { id: expiring } = createPoll(db, makeInput({ expiresInSeconds: 60 }), NOW);
 		const [opt] = getOptions(db, expiring);
-		castVote(db, { pollId: expiring, deviceHash: 'd', optionIds: [opt.id], displayName: null }, NOW);
+		castVote(
+			db,
+			{ pollId: expiring, deviceHash: 'd', optionIds: [opt.id], displayName: null },
+			NOW
+		);
 
 		let r = sweep(db, NOW + 120);
 		expect(r.closed).toBe(1);
@@ -139,9 +147,11 @@ describe('polls', () => {
 		expect(db.prepare('SELECT COUNT(*) AS n FROM votes WHERE poll_id = ?').get(expiring)).toEqual({
 			n: 0
 		});
-		expect(db.prepare('SELECT COUNT(*) AS n FROM options WHERE poll_id = ?').get(expiring)).toEqual({
-			n: 0
-		});
+		expect(db.prepare('SELECT COUNT(*) AS n FROM options WHERE poll_id = ?').get(expiring)).toEqual(
+			{
+				n: 0
+			}
+		);
 	});
 
 	it('getPoll hides rows past delete_after even if the sweep has not run', () => {

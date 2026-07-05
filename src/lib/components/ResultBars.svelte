@@ -31,7 +31,8 @@
 			<div class="labels">
 				<span class="label">
 					{option.label}
-					{#if myOptionIds.includes(option.id)}<span class="mine" title="Your vote">✓ you</span>{/if}
+					{#if myOptionIds.includes(option.id)}<span class="mine" title="Your vote">✓ you</span
+						>{/if}
 				</span>
 				<span class="nums">{count(option.id)} · {pct(option.id)}%</span>
 			</div>

@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { page } from '$app/state';
 	import { goto, invalidateAll } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import ResultBars from '$lib/components/ResultBars.svelte';
 	import SharePanel from '$lib/components/SharePanel.svelte';
-	import { NAME_MAX, RADII_M } from '$lib/validation';
 	import type { ResultsView } from '$lib/types';
+	import { NAME_MAX, RADII_M } from '$lib/validation';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -49,7 +50,11 @@
 		if (page.url.searchParams.get('new') === '1') {
 			showShare = true;
 			// strip the flag so refresh/back doesn't reopen
-			goto(`/p/${poll.id}`, { replaceState: true, keepFocus: true, noScroll: true });
+			goto(resolve('/p/[id]', { id: poll.id }), {
+				replaceState: true,
+				keepFocus: true,
+				noScroll: true
+			});
 		}
 
 		const saved = localStorage.getItem('soh_name');
@@ -222,7 +227,7 @@
 	async function deleteNow() {
 		if (!confirm('Delete this poll and all its votes immediately? This cannot be undone.')) return;
 		const res = await fetch(`/api/polls/${poll.id}`, { method: 'DELETE' });
-		if (res.ok) goto('/');
+		if (res.ok) goto(resolve('/'));
 	}
 
 	async function bumpRadius(r: number) {
@@ -262,11 +267,20 @@
 
 {#if data.isCreator}
 	<div class="creator-bar">
-		<button type="button" class="btn btn-secondary btn-small" onclick={() => (showShare = !showShare)}>
+		<button
+			type="button"
+			class="btn btn-secondary btn-small"
+			onclick={() => (showShare = !showShare)}
+		>
 			{showShare ? 'Hide sharing' : 'Share poll'}
 		</button>
 		{#if status === 'open'}
-			<button type="button" class="btn btn-secondary btn-small" onclick={closeNow} disabled={closing}>
+			<button
+				type="button"
+				class="btn btn-secondary btn-small"
+				onclick={closeNow}
+				disabled={closing}
+			>
 				Close now
 			</button>
 		{/if}
@@ -276,7 +290,7 @@
 		<details class="radius-bump">
 			<summary class="muted">Friends getting rejected? Widen the radius</summary>
 			<div class="radius-options">
-				{#each RADII_M as r}
+				{#each RADII_M as r (r)}
 					<button
 						type="button"
 						class="chip"
@@ -305,8 +319,8 @@
 			you're nearby and <strong>never stored</strong>.
 		</p>
 		<p class="muted">
-			Allow location access in your browser settings and try again. On a desktop without GPS,
-			try your phone instead.
+			Allow location access in your browser settings and try again. On a desktop without GPS, try
+			your phone instead.
 		</p>
 		<button type="button" class="btn btn-secondary" onclick={() => (geoDenied = false)}>
 			Try again
@@ -326,8 +340,8 @@
 	<div class="vote-form">
 		{#if poll.geofenced}
 			<p class="muted geo-note">
-				📍 This poll is limited to people near its creator. Your location is checked once when
-				you vote and never stored.
+				📍 This poll is limited to people near its creator. Your location is checked once when you
+				vote and never stored.
 			</p>
 		{/if}
 
@@ -397,10 +411,22 @@
 			<button type="button" class="btn" onclick={() => (editingVote = true)}>Vote</button>
 		{/if}
 
-		<ResultBars options={poll.options} counts={results.counts ?? {}} total={results.total} {myOptionIds} />
+		<ResultBars
+			options={poll.options}
+			counts={results.counts ?? {}}
+			total={results.total}
+			{myOptionIds}
+		/>
 
 		{#if hasVoted && status === 'open'}
-			<button type="button" class="btn btn-secondary change-btn" onclick={() => { selected = [...myOptionIds]; editingVote = true; }}>
+			<button
+				type="button"
+				class="btn btn-secondary change-btn"
+				onclick={() => {
+					selected = [...myOptionIds];
+					editingVote = true;
+				}}
+			>
 				Change my vote
 			</button>
 		{/if}
@@ -435,21 +461,6 @@
 		gap: 8px;
 		flex-wrap: wrap;
 		padding-top: 8px;
-	}
-
-	.chip {
-		padding: 8px 14px;
-		border-radius: 999px;
-		border: 1.5px solid var(--border);
-		background: var(--surface);
-		font-weight: 600;
-		cursor: pointer;
-	}
-
-	.chip.active {
-		background: var(--accent);
-		border-color: var(--accent);
-		color: #fff;
 	}
 
 	.share-wrap {

@@ -23,14 +23,16 @@ export const GRACE_SECONDS = 86_400; // results stay visible 24h after expiry
 /** Strip HTML tags and control characters, collapse whitespace, trim. */
 export function sanitizeText(raw: unknown, maxLength: number): string {
 	if (typeof raw !== 'string') return '';
-	return raw
-		.replace(/<[^>]*>/g, '')
-		.replace(/[<>]/g, '')
-		// eslint-disable-next-line no-control-regex
-		.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g, '')
-		.replace(/\s+/g, ' ')
-		.trim()
-		.slice(0, maxLength);
+	return (
+		raw
+			.replace(/<[^>]*>/g, '')
+			.replace(/[<>]/g, '')
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping control characters is this function's job
+			.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g, '')
+			.replace(/\s+/g, ' ')
+			.trim()
+			.slice(0, maxLength)
+	);
 }
 
 export function isValidRadius(value: unknown): value is (typeof RADII_M)[number] {

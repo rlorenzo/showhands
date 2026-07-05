@@ -4,7 +4,7 @@ import { getDb } from '$lib/server/db';
 import { sweep } from '$lib/server/polls';
 import { newRandomToken, signCookieValue, verifyCookieValue } from '$lib/server/tokens';
 
-export const DEVICE_COOKIE = 'soh_device';
+const DEVICE_COOKIE = 'soh_device';
 
 // Boot-time sweep + every 5 minutes. Guarded against dev-server HMR re-registration.
 const g = globalThis as typeof globalThis & { __sohSweepStarted?: boolean };

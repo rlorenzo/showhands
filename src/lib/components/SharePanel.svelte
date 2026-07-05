@@ -4,11 +4,10 @@
 	let { pollId, question }: { pollId: string; question: string } = $props();
 
 	let copied = $state(false);
-	let shareUrl = $state('');
-
-	$effect(() => {
-		shareUrl = `${location.origin}/p/${pollId}`;
-	});
+	// location is browser-only; guarded so an SSR render doesn't crash
+	const shareUrl = $derived(
+		typeof location !== 'undefined' ? `${location.origin}/p/${pollId}` : ''
+	);
 
 	async function copyLink() {
 		try {
@@ -37,7 +36,7 @@
 
 <div class="share card">
 	<p class="code" aria-label="Poll code">
-		{#each pollId.split('') as ch}<span>{ch}</span>{/each}
+		{#each pollId.split('') as ch, i (i)}<span>{ch}</span>{/each}
 	</p>
 	{#if shareUrl}
 		<QrCode text={shareUrl} />

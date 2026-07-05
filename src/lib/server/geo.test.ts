@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-	haversineMeters,
 	checkGeofence,
-	roundCoord,
+	haversineMeters,
 	isValidLatLng,
-	MAX_ACCURACY_ALLOWANCE_M
+	MAX_ACCURACY_ALLOWANCE_M,
+	roundCoord
 } from './geo';
 
 describe('haversineMeters', () => {

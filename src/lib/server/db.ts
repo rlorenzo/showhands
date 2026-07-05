@@ -1,6 +1,6 @@
-import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
+import Database from 'better-sqlite3';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS polls (

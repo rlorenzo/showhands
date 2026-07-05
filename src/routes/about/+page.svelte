@@ -35,10 +35,10 @@
 		exists (rounded to ~11 m precision) and deleted with it.
 	</p>
 	<p>
-		<strong>Honest limitation:</strong> a motivated person can spoof browser geolocation. This is a
-		social tool for friends, coworkers, and events — not a secure election system. GPS is also
-		fuzzy indoors, so the check allows a reasonable accuracy margin; if legit voters get rejected,
-		the creator can widen the radius.
+		<strong>Honest limitation:</strong> a motivated person can spoof browser geolocation. This is a social
+		tool for friends, coworkers, and events — not a secure election system. GPS is also fuzzy indoors,
+		so the check allows a reasonable accuracy margin; if legit voters get rejected, the creator can widen
+		the radius.
 	</p>
 </section>
 
@@ -53,19 +53,18 @@
 <section>
 	<h2>One vote per device</h2>
 	<p>
-		A random cookie keeps one vote per device and lets you change your vote while the poll is
-		open. This is best-effort: a private/incognito window gets a fresh cookie and could vote
-		again. We accept that tradeoff rather than fingerprint your browser — there is no tracking,
-		no third-party analytics, and no IP logging beyond short-lived standard server logs.
+		A random cookie keeps one vote per device and lets you change your vote while the poll is open.
+		This is best-effort: a private/incognito window gets a fresh cookie and could vote again. We
+		accept that tradeoff rather than fingerprint your browser — there is no tracking, no third-party
+		analytics, and no IP logging beyond short-lived standard server logs.
 	</p>
 </section>
 
 <section>
 	<h2>Lost the creator controls?</h2>
 	<p>
-		Creator powers (close early, delete, widen radius) live in a cookie on the device that made
-		the poll. If that cookie is cleared, the poll simply runs to its expiry and self-destructs as
-		usual.
+		Creator powers (close early, delete, widen radius) live in a cookie on the device that made the
+		poll. If that cookie is cleared, the poll simply runs to its expiry and self-destructs as usual.
 	</p>
 </section>
 

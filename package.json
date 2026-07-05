@@ -13,19 +13,23 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "npm run test:unit -- --run",
 		"test:unit": "vitest",
-		"test:e2e": "playwright test"
+		"test:e2e": "playwright test",
+		"lint": "biome check .",
+		"format": "biome check --write .",
+		"analyze": "fallow"
 	},
 	"dependencies": {
 		"better-sqlite3": "^12.4.1",
 		"qrcode": "^1.5.4"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "^2.5.2",
 		"@playwright/test": "^1.56.1",
 		"@sveltejs/adapter-node": "^5.3.3",
 		"@sveltejs/kit": "^2.63.0",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
 		"@types/better-sqlite3": "^7.6.13",
-		"@types/node": "^22.19.3",
+		"@types/node": "^22",
 		"@types/qrcode": "^1.5.5",
 		"svelte": "^5.56.1",
 		"svelte-check": "^4.6.0",

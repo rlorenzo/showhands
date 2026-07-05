@@ -1,4 +1,4 @@
-import { test, expect, type Browser, type Page } from '@playwright/test';
+import { type Browser, expect, type Page, test } from '@playwright/test';
 
 async function createPoll(
 	page: Page,

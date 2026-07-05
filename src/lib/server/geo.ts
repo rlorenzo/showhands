@@ -33,7 +33,9 @@ export function checkGeofence(
 	reportedAccuracyM: number | undefined
 ): GeofenceCheck {
 	const distanceM = haversineMeters(originLat, originLng, voterLat, voterLng);
-	const accuracy = Number.isFinite(reportedAccuracyM) ? Math.max(0, reportedAccuracyM as number) : 0;
+	const accuracy = Number.isFinite(reportedAccuracyM)
+		? Math.max(0, reportedAccuracyM as number)
+		: 0;
 	const allowance = Math.min(accuracy, MAX_ACCURACY_ALLOWANCE_M);
 	return { ok: distanceM <= radiusM + allowance, distanceM };
 }

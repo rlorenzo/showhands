@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import {
-		QUESTION_MAX,
-		OPTION_MAX,
-		OPTIONS_MIN,
-		OPTIONS_MAX,
-		RADII_M,
-		EXPIRY_CHOICES,
 		DEFAULT_EXPIRY,
-		type ExpiryKey
+		EXPIRY_CHOICES,
+		type ExpiryKey, 
+		OPTION_MAX,
+		OPTIONS_MAX,
+		OPTIONS_MIN,
+		QUESTION_MAX,
+		RADII_M
 	} from '$lib/validation';
 
 	let question = $state('');
@@ -107,8 +108,7 @@
 					allowMulti,
 					resultsVisibility,
 					expiry,
-					geofence:
-						geofenceOn && coords ? { lat: coords.lat, lng: coords.lng, radiusM } : null
+					geofence: geofenceOn && coords ? { lat: coords.lat, lng: coords.lng, radiusM } : null
 				})
 			});
 			const data = await res.json();
@@ -117,7 +117,8 @@
 				submitting = false;
 				return;
 			}
-			await goto(`${data.url}?new=1`);
+			// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve() is used; the rule can't see it through the query-string concatenation
+			await goto(`${resolve('/p/[id]', { id: data.id })}?new=1`);
 		} catch {
 			submitError = 'Network error. Try again.';
 			submitting = false;
@@ -127,7 +128,7 @@
 	function join(e: SubmitEvent) {
 		e.preventDefault();
 		const code = joinCode.trim().toUpperCase();
-		if (code.length === 4) goto(`/p/${code}`);
+		if (code.length === 4) goto(resolve('/p/[id]', { id: code }));
 	}
 
 	function radiusLabel(r: number): string {
@@ -156,7 +157,7 @@
 	/>
 
 	<div class="options">
-		{#each options as _, i}
+		{#each options, i (i)}
 			<div class="option-row">
 				<input
 					type="text"
@@ -226,7 +227,7 @@
 					<small>Poll closes, then self-destructs 24h later</small>
 				</span>
 				<select bind:value={expiry}>
-					{#each Object.keys(EXPIRY_CHOICES) as key}
+					{#each Object.keys(EXPIRY_CHOICES) as key (key)}
 						<option value={key}>{key}</option>
 					{/each}
 				</select>
@@ -235,7 +236,10 @@
 			<div class="row geo-row">
 				<span>
 					Only people nearby can vote
-					<small>Voters must be within a radius of where you are now. Their location is checked once and never stored.</small>
+					<small
+						>Voters must be within a radius of where you are now. Their location is checked once and
+						never stored.</small
+					>
 				</span>
 				<input
 					type="checkbox"
@@ -258,7 +262,7 @@
 
 			{#if geofenceOn && coords}
 				<div class="radius-picker">
-					{#each RADII_M as r}
+					{#each RADII_M as r (r)}
 						<button
 							type="button"
 							class="chip"
@@ -388,21 +392,6 @@
 		display: flex;
 		gap: 8px;
 		flex-wrap: wrap;
-	}
-
-	.chip {
-		padding: 8px 14px;
-		border-radius: 999px;
-		border: 1.5px solid var(--border);
-		background: var(--surface);
-		font-weight: 600;
-		cursor: pointer;
-	}
-
-	.chip.active {
-		background: var(--accent);
-		border-color: var(--accent);
-		color: #fff;
 	}
 
 	.map-preview {

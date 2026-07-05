@@ -1,19 +1,19 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
+import { checkGeofence, isValidLatLng } from '$lib/server/geo';
+import { normalizePollId } from '$lib/server/ids';
 import {
-	getPoll,
-	getOptions,
-	effectiveStatus,
 	castVote,
+	effectiveStatus,
+	getOptions,
+	getPoll,
 	publishResults,
 	resultsPayload
 } from '$lib/server/polls';
-import { deviceHashForPoll } from '$lib/server/tokens';
 import { allow, LIMITS } from '$lib/server/ratelimit';
-import { checkGeofence, isValidLatLng } from '$lib/server/geo';
-import { normalizePollId } from '$lib/server/ids';
-import { sanitizeText, NAME_MAX } from '$lib/validation';
+import { deviceHashForPoll } from '$lib/server/tokens';
+import { NAME_MAX, sanitizeText } from '$lib/validation';
+import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ params, request, locals, getClientAddress }) => {
 	const ip = getClientAddress();

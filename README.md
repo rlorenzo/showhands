@@ -55,10 +55,10 @@ node build/index.js
 
 Configuration (all optional):
 
-| Env var | Default | Purpose |
-| --- | --- | --- |
-| `PORT` | `3000` | HTTP port |
-| `DATABASE_PATH` | `./data/showhands.db` | SQLite file location |
+| Env var            | Default                              | Purpose                            |
+| ------------------ | ------------------------------------ | ---------------------------------- |
+| `PORT`             | `3000`                               | HTTP port                          |
+| `DATABASE_PATH`    | `./data/showhands.db`                | SQLite file location               |
 | `SHOWHANDS_SECRET` | generated & persisted next to the DB | HMAC key for device/creator tokens |
 
 Deploys as one container (Fly.io, Railway, anything that runs Node). Mount a
@@ -78,13 +78,13 @@ acceptable by design.
 
 ## API
 
-| Route | Method | Purpose |
-| --- | --- | --- |
-| `/api/polls` | POST | Create poll (sets creator cookie) |
-| `/p/:id` | GET | SSR poll page (vote or results) |
-| `/api/polls/:id/vote` | POST | Cast/replace vote (`{ optionIds, displayName?, lat?, lng?, accuracy? }`) |
-| `/api/polls/:id/results` | GET | JSON results snapshot |
-| `/api/polls/:id/stream` | GET | SSE live results |
-| `/api/polls/:id/close` | POST | Close early (creator only) |
-| `/api/polls/:id` | PATCH | Change geofence radius (creator only) |
-| `/api/polls/:id` | DELETE | Delete immediately (creator only) |
+| Route                    | Method | Purpose                                                                  |
+| ------------------------ | ------ | ------------------------------------------------------------------------ |
+| `/api/polls`             | POST   | Create poll (sets creator cookie)                                        |
+| `/p/:id`                 | GET    | SSR poll page (vote or results)                                          |
+| `/api/polls/:id/vote`    | POST   | Cast/replace vote (`{ optionIds, displayName?, lat?, lng?, accuracy? }`) |
+| `/api/polls/:id/results` | GET    | JSON results snapshot                                                    |
+| `/api/polls/:id/stream`  | GET    | SSE live results                                                         |
+| `/api/polls/:id/close`   | POST   | Close early (creator only)                                               |
+| `/api/polls/:id`         | PATCH  | Change geofence radius (creator only)                                    |
+| `/api/polls/:id`         | DELETE | Delete immediately (creator only)                                        |

@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-	sanitizeText,
+	EXPIRY_CHOICES,
 	isValidExpiry,
 	isValidRadius,
-	EXPIRY_CHOICES,
-	QUESTION_MAX
+	QUESTION_MAX,
+	sanitizeText
 } from './validation';
 
 describe('sanitizeText', () => {

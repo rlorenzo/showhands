@@ -9,7 +9,7 @@ let secret: Buffer | null = null;
  * Uses SHOWHANDS_SECRET when set; otherwise generates one and persists it
  * next to the database so restarts don't invalidate every cookie.
  */
-export function getSecret(): Buffer {
+function getSecret(): Buffer {
 	if (secret) return secret;
 	const env = process.env.SHOWHANDS_SECRET;
 	if (env && env.length >= 16) {
@@ -32,7 +32,7 @@ export function getSecret(): Buffer {
 	return secret;
 }
 
-export function hmacHex(value: string): string {
+function hmacHex(value: string): string {
 	return createHmac('sha256', getSecret()).update(value).digest('hex');
 }
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import '../app.css';
+	import { resolve } from '$app/paths';
 	import favicon from '$lib/assets/favicon.svg';
 
 	let { children } = $props();
@@ -12,11 +13,11 @@
 </svelte:head>
 
 <div class="shell">
-	<a class="brand" href="/"><span class="hand">✋</span> Show of Hands</a>
+	<a class="brand" href={resolve('/')}><span class="hand">✋</span> Show of Hands</a>
 	<main>
 		{@render children()}
 	</main>
 	<footer class="site-footer">
-		<a href="/about">How it works &amp; privacy</a>
+		<a href={resolve('/about')}>How it works &amp; privacy</a>
 	</footer>
 </div>

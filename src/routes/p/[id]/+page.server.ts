@@ -1,18 +1,18 @@
 import { error } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
 import { getDb } from '$lib/server/db';
+import { isValidPollIdShape, normalizePollId } from '$lib/server/ids';
 import {
-	getPoll,
-	getOptions,
-	toPollView,
-	resultsPayload,
 	getDeviceVote,
-	verifyCreatorToken,
-	nowSeconds
+	getOptions,
+	getPoll,
+	nowSeconds,
+	resultsPayload,
+	toPollView,
+	verifyCreatorToken
 } from '$lib/server/polls';
-import { deviceHashForPoll } from '$lib/server/tokens';
-import { normalizePollId, isValidPollIdShape } from '$lib/server/ids';
 import { allow, LIMITS } from '$lib/server/ratelimit';
+import { deviceHashForPoll } from '$lib/server/tokens';
+import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, getClientAddress }) => {
 	const pollId = normalizePollId(params.id);

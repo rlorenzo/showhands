@@ -1,10 +1,10 @@
 import type { Database } from 'better-sqlite3';
+import type { PollView } from '$lib/types';
+import { GRACE_SECONDS } from '$lib/validation';
+import { closeChannel, publish, type ResultsPayload } from './broadcast';
+import { roundCoord } from './geo';
 import { generatePollId } from './ids';
 import { creatorTokenHash, newRandomToken, safeEqualHex } from './tokens';
-import { roundCoord } from './geo';
-import { publish, closeChannel, type ResultsPayload } from './broadcast';
-import { GRACE_SECONDS } from '$lib/validation';
-import type { PollView } from '$lib/types';
 
 export interface PollRow {
 	id: string;
@@ -86,7 +86,9 @@ export function createPoll(
 				if ((err as { code?: string }).code === 'SQLITE_CONSTRAINT_PRIMARYKEY') continue;
 				throw err;
 			}
-			input.options.forEach((label, i) => insertOption.run(id, label, i));
+			input.options.forEach((label, i) => {
+				insertOption.run(id, label, i);
+			});
 			return id;
 		}
 		throw new Error('could not allocate poll id');
@@ -167,14 +169,19 @@ export function getDeviceVote(
 	return { optionIds: rows.map((r) => r.option_id), displayName: rows[0].display_name };
 }
 
-export function getCounts(db: Database, pollId: string): { counts: Record<string, number>; total: number } {
+export function getCounts(
+	db: Database,
+	pollId: string
+): { counts: Record<string, number>; total: number } {
 	const rows = db
 		.prepare('SELECT option_id, COUNT(*) AS n FROM votes WHERE poll_id = ? GROUP BY option_id')
 		.all(pollId) as { option_id: number; n: number }[];
 	const counts: Record<string, number> = {};
 	for (const r of rows) counts[String(r.option_id)] = r.n;
 	const total = (
-		db.prepare('SELECT COUNT(DISTINCT device_hash) AS n FROM votes WHERE poll_id = ?').get(pollId) as {
+		db
+			.prepare('SELECT COUNT(DISTINCT device_hash) AS n FROM votes WHERE poll_id = ?')
+			.get(pollId) as {
 			n: number;
 		}
 	).n;
@@ -218,10 +225,9 @@ export function verifyCreatorToken(poll: PollRow, token: string | undefined | nu
 }
 
 export function closePoll(db: Database, pollId: string, now = nowSeconds()): void {
-	db.prepare("UPDATE polls SET status = 'closed', expires_at = MIN(expires_at, ?) WHERE id = ?").run(
-		now,
-		pollId
-	);
+	db.prepare(
+		"UPDATE polls SET status = 'closed', expires_at = MIN(expires_at, ?) WHERE id = ?"
+	).run(now, pollId);
 }
 
 export function deletePoll(db: Database, pollId: string): void {
@@ -230,10 +236,9 @@ export function deletePoll(db: Database, pollId: string): void {
 }
 
 export function updateRadius(db: Database, pollId: string, radiusM: number): void {
-	db.prepare('UPDATE polls SET geofence_radius_m = ? WHERE id = ? AND geofence_radius_m IS NOT NULL').run(
-		radiusM,
-		pollId
-	);
+	db.prepare(
+		'UPDATE polls SET geofence_radius_m = ? WHERE id = ? AND geofence_radius_m IS NOT NULL'
+	).run(radiusM, pollId);
 }
 
 /**
@@ -246,7 +251,9 @@ export function sweep(db: Database, now = nowSeconds()): { closed: number; delet
 		.prepare("SELECT id FROM polls WHERE status = 'open' AND expires_at <= ?")
 		.all(now) as { id: string }[];
 	if (toClose.length > 0) {
-		db.prepare("UPDATE polls SET status = 'closed' WHERE status = 'open' AND expires_at <= ?").run(now);
+		db.prepare("UPDATE polls SET status = 'closed' WHERE status = 'open' AND expires_at <= ?").run(
+			now
+		);
 		for (const { id } of toClose) {
 			const poll = getPoll(db, id, now);
 			if (poll) publishResults(db, poll, now);

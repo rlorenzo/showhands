@@ -1,8 +1,8 @@
-import type { RequestHandler } from './$types';
+import { type ResultsPayload, subscribe } from '$lib/server/broadcast';
 import { getDb } from '$lib/server/db';
-import { getPoll, resultsPayload } from '$lib/server/polls';
-import { subscribe, type ResultsPayload } from '$lib/server/broadcast';
 import { normalizePollId } from '$lib/server/ids';
+import { getPoll, resultsPayload } from '$lib/server/polls';
+import type { RequestHandler } from './$types';
 
 const KEEPALIVE_MS = 25_000; // iOS Safari reaps quiet SSE connections; comment every 25s
 
