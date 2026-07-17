@@ -6,6 +6,9 @@
 	"allowScripts": {
 		"better-sqlite3@12.11.1": true
 	},
+	"overrides": {
+		"cookie": "^0.7.0"
+	},
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
