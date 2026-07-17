@@ -4,6 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import ResultBars from '$lib/components/ResultBars.svelte';
+	import Seo from '$lib/components/Seo.svelte';
 	import SharePanel from '$lib/components/SharePanel.svelte';
 	import type { ResultsView } from '$lib/types';
 	import { NAME_MAX, RADII_M } from '$lib/validation';
@@ -251,10 +252,16 @@
 	}
 </script>
 
-<svelte:head>
-	<title>{poll.question} - Show of Hands</title>
-	<meta name="robots" content="noindex" />
-</svelte:head>
+<!-- Generic, question-free social card by design: the poll question stays out
+	of third-party unfurl caches (Slack, iMessage) via socialTitle, which keeps
+	the ephemerality promise and adds no enumeration signal - missing and expired
+	polls 404 alike. The question stays in the document <title> (local history). -->
+<Seo
+	title="{poll.question} - Show of Hands"
+	socialTitle="Vote now · Show of Hands"
+	description="Someone started a poll. Tap to cast your vote and watch the results land live. No account needed."
+	noindex
+/>
 
 <h1>{poll.question}</h1>
 

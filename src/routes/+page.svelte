@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import Seo from '$lib/components/Seo.svelte';
 	import {
 		DEFAULT_EXPIRY,
 		EXPIRY_CHOICES,
@@ -152,13 +153,10 @@
 	}
 </script>
 
-<svelte:head>
-	<title>Show of Hands - instant polls for people nearby</title>
-	<meta
-		name="description"
-		content="Create a poll in seconds, share it with a QR code, watch votes live. No accounts, polls self-destruct."
-	/>
-</svelte:head>
+<Seo
+	title="Show of Hands - instant polls for people nearby"
+	description="Create a poll in seconds, share it with a QR code, watch votes live. No accounts, polls self-destruct."
+/>
 
 <h1>What are we deciding?</h1>
 

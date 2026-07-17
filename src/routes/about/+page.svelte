@@ -1,10 +1,11 @@
-<svelte:head>
-	<title>How it works - Show of Hands</title>
-	<meta
-		name="description"
-		content="How Show of Hands polls, proximity checks, anonymity, and self-destruction work."
-	/>
-</svelte:head>
+<script lang="ts">
+	import Seo from '$lib/components/Seo.svelte';
+</script>
+
+<Seo
+	title="How it works - Show of Hands"
+	description="How Show of Hands polls, proximity checks, anonymity, and self-destruction work."
+/>
 
 <h1>How it works</h1>
 
