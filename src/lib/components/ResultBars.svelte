@@ -5,12 +5,14 @@
 		options,
 		counts,
 		total,
-		myOptionIds = []
+		myOptionIds = [],
+		closed = false
 	}: {
 		options: PollOptionView[];
 		counts: Record<string, number>;
 		total: number;
 		myOptionIds?: number[];
+		closed?: boolean;
 	} = $props();
 
 	function count(id: number): number {
@@ -23,30 +25,41 @@
 	}
 
 	const leader = $derived(Math.max(0, ...options.map((o) => count(o.id))));
+
+	function isWinner(id: number): boolean {
+		return closed && leader > 0 && count(id) === leader;
+	}
 </script>
 
-<ul class="results" aria-live="polite">
-	{#each options as option (option.id)}
-		<li>
+<ul class="results" class:closed>
+	{#each options as option, i (option.id)}
+		<li class:winner={isWinner(option.id)}>
 			<div class="labels">
 				<span class="label">
+					{#if isWinner(option.id)}<span class="win-hand" aria-hidden="true">✋</span><span
+							class="sr-only">Winner:</span
+						>{/if}
 					{option.label}
 					{#if myOptionIds.includes(option.id)}<span class="mine" title="Your vote">✓ you</span
 						>{/if}
 				</span>
-				<span class="nums">{count(option.id)} · {pct(option.id)}%</span>
+				<span class="nums">
+					{#key `${count(option.id)}·${pct(option.id)}`}
+						<span class="tick">{count(option.id)} · {pct(option.id)}%</span>
+					{/key}
+				</span>
 			</div>
 			<div class="track">
 				<div
 					class="bar"
 					class:leader={count(option.id) === leader && leader > 0}
-					style="width: {pct(option.id)}%"
+					style="--p: {pct(option.id) / 100}; --i: {i}"
 				></div>
 			</div>
 		</li>
 	{/each}
 </ul>
-<p class="muted total">{total} {total === 1 ? 'vote' : 'votes'}</p>
+<p class="muted total" aria-live="polite">{total} {total === 1 ? 'vote' : 'votes'}</p>
 
 <style>
 	.results {
@@ -72,7 +85,7 @@
 	}
 
 	.mine {
-		color: var(--accent);
+		color: var(--accent-dark);
 		font-size: 0.8rem;
 		font-weight: 700;
 		margin-left: 6px;
@@ -85,6 +98,11 @@
 		font-variant-numeric: tabular-nums;
 	}
 
+	.tick {
+		display: inline-block;
+		animation: tick-in 200ms var(--ease-out-quart);
+	}
+
 	.track {
 		height: 14px;
 		border-radius: 999px;
@@ -92,16 +110,41 @@
 		overflow: hidden;
 	}
 
+	/* The hand going up: bars scale in on reveal (staggered), then every new vote
+	   lands as a weighted transform — never a layout animation. */
 	.bar {
 		height: 100%;
+		width: 100%;
 		border-radius: 999px;
-		background: color-mix(in srgb, var(--accent) 55%, #f5c8b5);
-		transition: width 400ms cubic-bezier(0.22, 1, 0.36, 1);
-		min-width: 0;
+		background: var(--accent-faded);
+		transform: scaleX(var(--p, 0));
+		transform-origin: left;
+		transition:
+			transform 400ms var(--ease-out-quint),
+			background 250ms var(--ease-out-quart);
+		animation: hand-up 500ms var(--ease-out-quint) backwards;
+		animation-delay: calc(var(--i, 0) * 50ms);
 	}
 
 	.bar.leader {
 		background: var(--accent);
+	}
+
+	.winner .label {
+		font-weight: 800;
+		font-size: 1.05rem;
+	}
+
+	.win-hand {
+		margin-right: 4px;
+	}
+
+	.winner .track {
+		animation: winner-glow 900ms var(--ease-out-quart) 450ms 1 backwards;
+	}
+
+	.closed li:not(.winner) .label {
+		color: var(--text-muted);
 	}
 
 	.total {

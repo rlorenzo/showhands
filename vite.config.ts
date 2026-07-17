@@ -19,6 +19,8 @@ export default defineConfig({
 					'style-src': ['self', 'unsafe-inline'],
 					'img-src': ['self', 'data:', 'https://tile.openstreetmap.org'],
 					'connect-src': ['self'],
+					// GitHub Sponsors button in the site footer
+					'frame-src': ['https://github.com/sponsors/'],
 					'frame-ancestors': ['none'],
 					'base-uri': ['self'],
 					'form-action': ['self']

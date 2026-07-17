@@ -1,7 +1,9 @@
 :root {
 	--accent: #e85d2f;
 	--accent-dark: #c94a20;
+	--accent-deeper: #a83c17;
 	--accent-soft: #fdeee7;
+	--accent-faded: #ee8d6b;
 	--bg: #faf8f5;
 	--surface: #ffffff;
 	--text: #1c1917;
@@ -10,6 +12,9 @@
 	--danger: #b91c1c;
 	--radius: 14px;
 	--shadow: 0 1px 3px rgba(28, 25, 23, 0.08), 0 4px 16px rgba(28, 25, 23, 0.06);
+	--ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+	--ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+	--ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
@@ -49,7 +54,9 @@ body {
 }
 
 .brand .hand {
-	font-size: 1.3rem;
+	display: block;
+	width: 22px;
+	height: 22px;
 }
 
 main {
@@ -61,7 +68,13 @@ main {
 	font-size: 0.8rem;
 	color: var(--text-muted);
 	display: flex;
+	align-items: center;
 	gap: 16px;
+}
+
+.site-footer .sponsor-btn {
+	border: 0;
+	border-radius: 6px;
 }
 
 .site-footer a {
@@ -114,16 +127,21 @@ input[type="text"]:focus {
 	padding: 12px 18px;
 	border: none;
 	border-radius: 12px;
-	background: var(--accent);
+	/* Bonfire Deep, not Bonfire Orange: white label needs ≥4.5:1 (deep = 4.69:1) */
+	background: var(--accent-dark);
 	color: #fff;
 	font-weight: 700;
 	font-size: 1.05rem;
 	cursor: pointer;
 	touch-action: manipulation;
+	transition:
+		background 150ms var(--ease-out-quart),
+		transform 120ms var(--ease-out-quart);
 }
 
 .btn:active {
-	background: var(--accent-dark);
+	background: var(--accent-deeper);
+	transform: scale(0.985);
 }
 
 .btn:disabled {
@@ -165,9 +183,20 @@ input[type="text"]:focus {
 }
 
 .chip.active {
-	background: var(--accent);
-	border-color: var(--accent);
+	background: var(--accent-dark);
+	border-color: var(--accent-dark);
 	color: #fff;
+}
+
+.btn:focus-visible,
+.chip:focus-visible,
+.choice:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+a:focus-visible,
+input[type="checkbox"]:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
 }
 
 .muted {
@@ -179,6 +208,48 @@ input[type="text"]:focus {
 	color: var(--danger);
 	font-size: 0.92rem;
 	margin: 8px 0 0;
+}
+
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* Motion vocabulary — every use is neutralized by the reduced-motion kill switch below. */
+@keyframes rise-in {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+}
+
+@keyframes tick-in {
+	from {
+		opacity: 0;
+		transform: translateY(0.3em);
+	}
+}
+
+@keyframes hand-up {
+	from {
+		transform: scaleX(0);
+	}
+}
+
+@keyframes winner-glow {
+	0% {
+		box-shadow: 0 0 0 0 rgba(232, 93, 47, 0.45);
+	}
+	100% {
+		box-shadow: 0 0 0 12px rgba(232, 93, 47, 0);
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {

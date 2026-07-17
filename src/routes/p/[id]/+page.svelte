@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -13,13 +13,16 @@
 
 	const poll = $derived(data.poll);
 
-	let results = $state<ResultsView>(data.results);
-	let myOptionIds = $state<number[]>(data.myVote?.optionIds ?? []);
-	let hasVoted = $state(data.myVote !== null);
+	// Seeded from the server load, then owned locally — SSE, vote responses and
+	// the results snapshot drive them from here on, so a reload must not clobber
+	// what the voter is currently doing.
+	let results = $state<ResultsView>(untrack(() => data.results));
+	let myOptionIds = $state<number[]>(untrack(() => data.myVote?.optionIds ?? []));
+	let hasVoted = $state(untrack(() => data.myVote !== null));
 	let editingVote = $state(false);
 
-	let selected = $state<number[]>(data.myVote?.optionIds ?? []);
-	let displayName = $state(data.myVote?.displayName ?? '');
+	let selected = $state<number[]>(untrack(() => data.myVote?.optionIds ?? []));
+	let displayName = $state(untrack(() => data.myVote?.displayName ?? ''));
 	let voteError = $state('');
 	let rejection = $state<{ distanceM: number; radiusM: number } | null>(null);
 	let submitting = $state(false);
@@ -28,13 +31,15 @@
 
 	let showShare = $state(false);
 	let closing = $state(false);
+	let justVoted = $state(false);
+	let confirmAction = $state<null | 'close' | 'delete'>(null);
 
 	const status = $derived(results.status);
 	const showVoteForm = $derived(status === 'open' && (!hasVoted || editingVote));
 	const resultsHidden = $derived(results.counts === null);
 
 	// --- countdown ---------------------------------------------------------
-	let clockOffset = data.serverNow - Math.floor(Date.now() / 1000);
+	let clockOffset = untrack(() => data.serverNow) - Math.floor(Date.now() / 1000);
 	let nowTick = $state(Math.floor(Date.now() / 1000));
 	const secondsLeft = $derived(Math.max(0, results.closesAt - (nowTick + clockOffset)));
 
@@ -194,7 +199,8 @@
 					rejection = { distanceM: data.distanceM, radiusM: data.radiusM };
 				} else if (res.status === 409) {
 					voteError = 'This poll just closed.';
-					await invalidateAll();
+					const snap = await fetch(`/api/polls/${poll.id}/results`);
+					if (snap.ok) results = await snap.json();
 				} else {
 					voteError = data.error ?? 'Vote failed. Try again.';
 				}
@@ -205,6 +211,7 @@
 			myOptionIds = [...selected];
 			hasVoted = true;
 			editingVote = false;
+			justVoted = true;
 		} catch {
 			voteError = 'Network error. Try again.';
 		}
@@ -214,8 +221,8 @@
 	// --- creator actions -----------------------------------------------------
 	async function closeNow() {
 		if (closing) return;
-		if (!confirm('Close this poll now? Votes will be frozen.')) return;
 		closing = true;
+		confirmAction = null;
 		const res = await fetch(`/api/polls/${poll.id}/close`, { method: 'POST' });
 		if (res.ok) {
 			const snap = await fetch(`/api/polls/${poll.id}/results`);
@@ -225,7 +232,7 @@
 	}
 
 	async function deleteNow() {
-		if (!confirm('Delete this poll and all its votes immediately? This cannot be undone.')) return;
+		confirmAction = null;
 		const res = await fetch(`/api/polls/${poll.id}`, { method: 'DELETE' });
 		if (res.ok) goto(resolve('/'));
 	}
@@ -245,7 +252,7 @@
 </script>
 
 <svelte:head>
-	<title>{poll.question} — Show of Hands</title>
+	<title>{poll.question} - Show of Hands</title>
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
@@ -253,7 +260,8 @@
 
 <p class="meta muted">
 	{#if status === 'open'}
-		{#if secondsLeft > 0}Closes in {fmtCountdown(secondsLeft)}{:else}Closing…{/if}
+		{#if secondsLeft > 0}<strong class="countdown">Closes in {fmtCountdown(secondsLeft)}</strong>
+			· then it self-destructs{:else}Closing…{/if}
 		{#if poll.geofenced}
 			· 📍 within {poll.geofenceRadiusM && poll.geofenceRadiusM >= 1000
 				? `${poll.geofenceRadiusM / 1000} km`
@@ -278,14 +286,53 @@
 			<button
 				type="button"
 				class="btn btn-secondary btn-small"
-				onclick={closeNow}
+				onclick={() => (confirmAction = confirmAction === 'close' ? null : 'close')}
 				disabled={closing}
 			>
 				Close now
 			</button>
 		{/if}
-		<button type="button" class="btn btn-danger btn-small" onclick={deleteNow}>Delete</button>
+		<button
+			type="button"
+			class="btn btn-danger btn-small"
+			onclick={() => (confirmAction = confirmAction === 'delete' ? null : 'delete')}
+		>
+			Delete
+		</button>
 	</div>
+	{#if confirmAction === 'close'}
+		<div class="card confirm-card">
+			<p><strong>Close this poll now?</strong> Voting stops and the tally becomes final.</p>
+			<div class="confirm-row">
+				<button type="button" class="btn btn-small" onclick={closeNow} disabled={closing}>
+					Close poll
+				</button>
+				<button
+					type="button"
+					class="btn btn-secondary btn-small"
+					onclick={() => (confirmAction = null)}
+				>
+					Cancel
+				</button>
+			</div>
+		</div>
+	{:else if confirmAction === 'delete'}
+		<div class="card confirm-card">
+			<p><strong>Delete this poll and every vote?</strong> This cannot be undone.</p>
+			<div class="confirm-row">
+				<button type="button" class="btn btn-danger btn-small" onclick={deleteNow}>
+					Delete now
+				</button>
+				<button
+					type="button"
+					class="btn btn-secondary btn-small"
+					onclick={() => (confirmAction = null)}
+				>
+					Keep poll
+				</button>
+			</div>
+		</div>
+	{/if}
 	{#if status === 'open' && poll.geofenced}
 		<details class="radius-bump">
 			<summary class="muted">Friends getting rejected? Widen the radius</summary>
@@ -312,7 +359,7 @@
 {/if}
 
 {#if geoDenied}
-	<div class="card notice">
+	<div class="card notice" role="alert">
 		<h2>Location needed</h2>
 		<p>
 			This poll is limited to people near its creator. Your location is checked once to verify
@@ -327,7 +374,7 @@
 		</button>
 	</div>
 {:else if rejection}
-	<div class="card notice">
+	<div class="card notice" role="alert">
 		<h2>You're too far away</h2>
 		<p>
 			You appear to be ~{fmtDistance(rejection.distanceM)} away; this poll is limited to
@@ -345,14 +392,13 @@
 			</p>
 		{/if}
 
-		<div class="choices" role={poll.allowMulti ? 'group' : 'radiogroup'} aria-label="Poll options">
+		<div class="choices" role="group" aria-label="Poll options">
 			{#each poll.options as option (option.id)}
 				<button
 					type="button"
 					class="choice"
 					class:selected={selected.includes(option.id)}
-					role={poll.allowMulti ? 'checkbox' : 'radio'}
-					aria-checked={selected.includes(option.id)}
+					aria-pressed={selected.includes(option.id)}
 					onclick={() => toggleOption(option.id)}
 				>
 					<span class="check" aria-hidden="true">{selected.includes(option.id) ? '●' : '○'}</span>
@@ -377,7 +423,7 @@
 		{/if}
 
 		{#if voteError}
-			<p class="error-text">{voteError}</p>
+			<p class="error-text" role="alert">{voteError}</p>
 		{/if}
 
 		<button
@@ -406,6 +452,10 @@
 	</div>
 {:else}
 	<div class="results-wrap">
+		{#if justVoted && status === 'open'}
+			<p class="voted-note" role="status">✋ Vote counted, you're in.</p>
+		{/if}
+
 		{#if !hasVoted && status === 'open'}
 			<p class="muted">You haven't voted yet.</p>
 			<button type="button" class="btn" onclick={() => (editingVote = true)}>Vote</button>
@@ -416,6 +466,7 @@
 			counts={results.counts ?? {}}
 			total={results.total}
 			{myOptionIds}
+			closed={status !== 'open'}
 		/>
 
 		{#if hasVoted && status === 'open'}
@@ -443,6 +494,45 @@
 <style>
 	.meta {
 		margin: -4px 0 16px;
+	}
+
+	.countdown {
+		color: var(--text);
+		font-weight: 600;
+	}
+
+	.confirm-card {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		margin-bottom: 12px;
+		animation: rise-in 220ms var(--ease-out-quart);
+	}
+
+	.confirm-card p {
+		margin: 0;
+	}
+
+	.confirm-row {
+		display: flex;
+		gap: 8px;
+	}
+
+	.voted-note {
+		margin: 0 0 12px;
+		padding: 10px 14px;
+		border-radius: 10px;
+		background: var(--accent-soft);
+		color: var(--accent-deeper);
+		font-weight: 600;
+		animation: rise-in 220ms var(--ease-out-quart);
+	}
+
+	.results-wrap,
+	.share-wrap,
+	.notice,
+	.vote-form {
+		animation: rise-in 220ms var(--ease-out-quart) both;
 	}
 
 	.creator-bar {
@@ -487,6 +577,9 @@
 		font-weight: 600;
 		cursor: pointer;
 		overflow-wrap: anywhere;
+		transition:
+			background 150ms var(--ease-out-quart),
+			border-color 150ms var(--ease-out-quart);
 	}
 
 	.choice.selected {

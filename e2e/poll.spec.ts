@@ -67,14 +67,14 @@ test.describe('Flow B: vote', () => {
 		const id = await createPoll(page, { question: 'Best day?', options: ['Fri', 'Sat'] });
 
 		const voter = await newVoter(browser, id);
-		await voter.getByRole('radio', { name: 'Fri' }).click();
+		await voter.getByRole('button', { name: 'Fri' }).click();
 		await voter.getByRole('button', { name: 'Vote', exact: true }).click();
 		await expect(voter.getByText('1 vote', { exact: false })).toBeVisible();
 		await expect(voter.getByText('✓ you')).toBeVisible();
 
 		// change vote — total stays 1
 		await voter.getByRole('button', { name: 'Change my vote' }).click();
-		await voter.getByRole('radio', { name: 'Sat' }).click();
+		await voter.getByRole('button', { name: 'Sat' }).click();
 		await voter.getByRole('button', { name: 'Update vote' }).click();
 		await expect(voter.getByText(/^1 vote$/)).toBeVisible();
 
@@ -86,12 +86,12 @@ test.describe('Flow B: vote', () => {
 
 		// watcher votes first so they see the results view
 		const watcher = await newVoter(browser, id);
-		await watcher.getByRole('radio', { name: 'Yes' }).click();
+		await watcher.getByRole('button', { name: 'Yes' }).click();
 		await watcher.getByRole('button', { name: 'Vote', exact: true }).click();
 		await expect(watcher.getByText(/^1 vote$/)).toBeVisible();
 
 		const voter2 = await newVoter(browser, id);
-		await voter2.getByRole('radio', { name: 'No' }).click();
+		await voter2.getByRole('button', { name: 'No' }).click();
 		await voter2.getByRole('button', { name: 'Vote', exact: true }).click();
 
 		// watcher's page must update via SSE without reload
@@ -109,7 +109,7 @@ test.describe('Flow B: vote', () => {
 		});
 
 		const voter = await newVoter(browser, id);
-		await voter.getByRole('radio', { name: 'A', exact: true }).click();
+		await voter.getByRole('button', { name: 'A', exact: true }).click();
 		await voter.getByRole('button', { name: 'Vote', exact: true }).click();
 		await expect(voter.getByText('Enter your name to vote')).toBeVisible();
 
@@ -129,8 +129,8 @@ test.describe('Flow B: vote', () => {
 		});
 
 		const voter = await newVoter(browser, id);
-		await voter.getByRole('checkbox', { name: 'Cheese' }).click();
-		await voter.getByRole('checkbox', { name: 'Basil' }).click();
+		await voter.getByRole('button', { name: 'Cheese' }).click();
+		await voter.getByRole('button', { name: 'Basil' }).click();
 		await voter.getByRole('button', { name: 'Vote', exact: true }).click();
 		// one voter, two option rows counted
 		await expect(voter.getByText(/^1 vote$/)).toBeVisible();
@@ -146,14 +146,14 @@ test.describe('Flow B: vote', () => {
 		});
 
 		const voter = await newVoter(browser, id);
-		await voter.getByRole('radio', { name: 'A', exact: true }).click();
+		await voter.getByRole('button', { name: 'A', exact: true }).click();
 		await voter.getByRole('button', { name: 'Vote', exact: true }).click();
 		await expect(voter.getByText('1 vote so far')).toBeVisible();
 		await expect(voter.getByText('Results will be revealed when the poll closes.')).toBeVisible();
 
 		// creator closes; voter sees final results appear (via SSE)
-		page.on('dialog', (d) => d.accept());
 		await page.getByRole('button', { name: 'Close now' }).click();
+		await page.getByRole('button', { name: 'Close poll' }).click();
 		await expect(voter.getByText('Poll closed · final results')).toBeVisible({ timeout: 5000 });
 
 		await voter.context().close();
@@ -166,13 +166,13 @@ test.describe('Flow B: vote', () => {
 		const id = await createPoll(page, { question: 'Double?', options: ['X', 'Y'] });
 
 		const voterA = await newVoter(browser, id);
-		await voterA.getByRole('radio', { name: 'X', exact: true }).click();
+		await voterA.getByRole('button', { name: 'X', exact: true }).click();
 		await voterA.getByRole('button', { name: 'Vote', exact: true }).click();
 		await expect(voterA.getByText(/^1 vote$/)).toBeVisible();
 
 		// fresh context = incognito: second vote counts (accepted tradeoff)
 		const voterB = await newVoter(browser, id);
-		await voterB.getByRole('radio', { name: 'X', exact: true }).click();
+		await voterB.getByRole('button', { name: 'X', exact: true }).click();
 		await voterB.getByRole('button', { name: 'Vote', exact: true }).click();
 		await expect(voterB.getByText(/^2 votes$/)).toBeVisible();
 
@@ -213,7 +213,7 @@ test.describe('Flow B: geofenced vote', () => {
 		});
 		const voter = await context.newPage();
 		await voter.goto(`/p/${id}`);
-		await voter.getByRole('radio', { name: 'In', exact: true }).click();
+		await voter.getByRole('button', { name: 'In', exact: true }).click();
 		await voter.getByRole('button', { name: 'Vote', exact: true }).click();
 		await expect(voter.getByText(/^1 vote$/)).toBeVisible();
 
@@ -231,7 +231,7 @@ test.describe('Flow B: geofenced vote', () => {
 		});
 		const voter = await context.newPage();
 		await voter.goto(`/p/${id}`);
-		await voter.getByRole('radio', { name: 'In', exact: true }).click();
+		await voter.getByRole('button', { name: 'In', exact: true }).click();
 		await voter.getByRole('button', { name: 'Vote', exact: true }).click();
 		await expect(voter.getByText("You're too far away")).toBeVisible();
 		await expect(voter.getByText(/You appear to be ~2\.\d km away/)).toBeVisible();
@@ -248,7 +248,7 @@ test.describe('Flow B: geofenced vote', () => {
 		const context = await browser.newContext({ permissions: ['geolocation'] });
 		const voter = await context.newPage();
 		await voter.goto(`/p/${id}`);
-		await voter.getByRole('radio', { name: 'In', exact: true }).click();
+		await voter.getByRole('button', { name: 'In', exact: true }).click();
 		await voter.getByRole('button', { name: 'Vote', exact: true }).click();
 		// no position ever arrives, so the browser rejects after the app's own
 		// 15s geolocation timeout — wait past it
@@ -264,8 +264,8 @@ test.describe('Flow C: watch / close', () => {
 	test('creator closes early; voting is frozen', async ({ page, browser }) => {
 		const id = await createPoll(page, { question: 'Close me', options: ['A', 'B'] });
 
-		page.on('dialog', (d) => d.accept());
 		await page.getByRole('button', { name: 'Close now' }).click();
+		await page.getByRole('button', { name: 'Close poll' }).click();
 		await expect(page.getByText('Poll closed · final results')).toBeVisible({ timeout: 5000 });
 
 		// new visitor sees final results, no vote form
@@ -278,8 +278,8 @@ test.describe('Flow C: watch / close', () => {
 	test('creator deletes; poll 404s identically to unknown codes', async ({ page, browser }) => {
 		const id = await createPoll(page, { question: 'Delete me', options: ['A', 'B'] });
 
-		page.on('dialog', (d) => d.accept());
-		await page.getByRole('button', { name: 'Delete' }).click();
+		await page.getByRole('button', { name: 'Delete', exact: true }).click();
+		await page.getByRole('button', { name: 'Delete now' }).click();
 		await page.waitForURL('/');
 
 		const visitor = await browser.newContext().then((c) => c.newPage());

@@ -32,3 +32,6 @@ vite.config.ts.timestamp-*
 # Tests
 /test-results
 /playwright-report
+
+# Design tooling scratch
+/.impeccable

@@ -78,18 +78,34 @@
 		);
 	}
 
-	// Single OpenStreetMap tile centered on the creator — a rough "you are here"
-	// preview, no API key needed.
+	// OpenStreetMap tile preview, no API key needed. A 3×3 grid at zoom+1 is
+	// slid so the creator sits exactly at the viewport center; the circle is
+	// drawn at real meters-per-pixel scale, so it's honest, not decorative.
 	const ZOOM_FOR_RADIUS: Record<number, number> = { 100: 16, 250: 15, 1000: 13, 5000: 11 };
-	const mapTile = $derived.by(() => {
+	const mapView = $derived.by(() => {
 		if (!coords) return null;
-		const z = ZOOM_FOR_RADIUS[radiusM] ?? 15;
-		const x = Math.floor(((coords.lng + 180) / 360) * 2 ** z);
+		const z = (ZOOM_FOR_RADIUS[radiusM] ?? 15) + 1;
+		const n = 2 ** z;
 		const latRad = (coords.lat * Math.PI) / 180;
-		const y = Math.floor(
-			((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * 2 ** z
+		const xf = ((coords.lng + 180) / 360) * n;
+		const yf = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n;
+		const x0 = Math.floor(xf) - 1;
+		const y0 = Math.min(Math.max(Math.floor(yf) - 1, 0), n - 3);
+		const wrap = (x: number) => ((x % n) + n) % n;
+		const tiles = [0, 1, 2].flatMap((row) =>
+			[0, 1, 2].map(
+				(col) => `https://tile.openstreetmap.org/${z}/${wrap(x0 + col)}/${y0 + row}.png`
+			)
 		);
-		return `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+		// Design units: the viewport is 256×192 (4:3); each tile renders at 128.
+		// Shift the 3×3 canvas so the creator lands on the viewport center.
+		const px = (xf - x0) * 128;
+		const py = (yf - y0) * 128;
+		const leftPct = ((128 - px) / 256) * 100;
+		const topPct = ((96 - py) / 192) * 100;
+		const metersPerTilePx = (156543.03392 * Math.cos(latRad)) / n;
+		const rPx = radiusM / metersPerTilePx / 2;
+		return { tiles, leftPct, topPct, rPx };
 	});
 
 	async function create(e: SubmitEvent) {
@@ -137,7 +153,7 @@
 </script>
 
 <svelte:head>
-	<title>Show of Hands — instant polls for people nearby</title>
+	<title>Show of Hands - instant polls for people nearby</title>
 	<meta
 		name="description"
 		content="Create a poll in seconds, share it with a QR code, watch votes live. No accounts, polls self-destruct."
@@ -273,12 +289,29 @@
 						</button>
 					{/each}
 				</div>
-				{#if mapTile}
+				{#if mapView}
 					<div class="map-preview">
-						<img src={mapTile} alt="Map around your current location" width="256" height="256" />
-						<span class="pin" aria-hidden="true"></span>
+						<div
+							class="map-grid"
+							style="left: {mapView.leftPct}%; top: {mapView.topPct}%"
+							aria-hidden="true"
+						>
+							{#each mapView.tiles as tile (tile)}
+								<img src={tile} alt="" width="256" height="256" />
+							{/each}
+						</div>
+						<svg class="map-overlay" viewBox="0 0 256 192" aria-hidden="true">
+							<circle class="radius-ring" cx="128" cy="96" r={mapView.rPx} />
+							<circle class="you-dot" cx="128" cy="96" r="6" />
+						</svg>
+						<a
+							class="map-attrib"
+							href="https://www.openstreetmap.org/copyright"
+							target="_blank"
+							rel="noopener noreferrer">© OpenStreetMap</a
+						>
 					</div>
-					<p class="muted">
+					<p class="muted map-caption">
 						Voting limited to about {radiusLabel(radiusM)} around here.
 					</p>
 				{/if}
@@ -296,7 +329,7 @@
 </form>
 
 <form class="join" onsubmit={join}>
-	<p class="muted">Have a 4-letter code?</p>
+	<h2 class="join-title">Have a 4-letter code?</h2>
 	<div class="join-row">
 		<input
 			type="text"
@@ -392,34 +425,68 @@
 		display: flex;
 		gap: 8px;
 		flex-wrap: wrap;
+		justify-content: center;
+	}
+
+	.map-caption {
+		text-align: center;
 	}
 
 	.map-preview {
 		position: relative;
-		width: 256px;
-		max-width: 100%;
+		width: 100%;
+		aspect-ratio: 4 / 3;
 		border-radius: 10px;
 		overflow: hidden;
 		border: 1px solid var(--border);
 	}
 
-	.map-preview img {
-		display: block;
-		width: 100%;
-		height: auto;
+	/* 3×3 tile canvas: 384 design units on both axes over a 256×192 viewport */
+	.map-grid {
+		position: absolute;
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		width: 150%;
+		height: 200%;
 	}
 
-	.pin {
+	.map-grid img {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+
+	.map-overlay {
 		position: absolute;
-		top: 50%;
-		left: 50%;
-		width: 14px;
-		height: 14px;
-		margin: -7px 0 0 -7px;
-		border-radius: 50%;
-		background: var(--accent);
-		border: 2.5px solid #fff;
-		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+		inset: 0;
+		width: 100%;
+		height: 100%;
+	}
+
+	.radius-ring {
+		fill: color-mix(in srgb, var(--accent) 18%, transparent);
+		stroke: var(--accent);
+		stroke-width: 2;
+	}
+
+	.you-dot {
+		fill: var(--accent);
+		stroke: #fff;
+		stroke-width: 2.5;
+		filter: drop-shadow(0 1px 2px rgba(28, 25, 23, 0.4));
+	}
+
+	.map-attrib {
+		position: absolute;
+		right: 4px;
+		bottom: 4px;
+		padding: 3px 6px;
+		border-radius: 999px;
+		font-size: 0.65rem;
+		line-height: 1;
+		background: color-mix(in srgb, var(--surface) 85%, transparent);
+		color: var(--text);
+		text-decoration: none;
 	}
 
 	.create-btn {
@@ -432,6 +499,12 @@
 		border-top: 1px solid var(--border);
 	}
 
+	.join-title {
+		font-size: 1.15rem;
+		line-height: 1.2;
+		margin: 0 0 12px;
+	}
+
 	.join-row {
 		display: flex;
 		gap: 8px;
@@ -441,6 +514,8 @@
 		text-transform: uppercase;
 		letter-spacing: 0.35em;
 		font-weight: 700;
-		width: 9em;
+		text-align: center;
+		flex: 1;
+		min-width: 0;
 	}
 </style>

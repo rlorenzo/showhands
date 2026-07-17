@@ -1,5 +1,5 @@
 <svelte:head>
-	<title>How it works — Show of Hands</title>
+	<title>How it works - Show of Hands</title>
 	<meta
 		name="description"
 		content="How Show of Hands polls, proximity checks, anonymity, and self-destruction work."
@@ -12,7 +12,7 @@
 	<h2>The 15-second pitch</h2>
 	<p>
 		Create a poll, throw the QR code on the table (or a screen), everyone votes from their phone
-		browser, results update live. No apps, no accounts — for anyone, ever.
+		browser, results update live. No apps, no accounts. For anyone, ever.
 	</p>
 </section>
 
@@ -26,7 +26,7 @@
 </section>
 
 <section>
-	<h2>"Only people nearby" — what it does</h2>
+	<h2>What "only people nearby" does</h2>
 	<p>
 		A creator can require voters to be within a radius (100 m to 5 km) of where the poll was
 		created. When you vote on such a poll, your browser asks for your location once; the server
@@ -36,7 +36,7 @@
 	</p>
 	<p>
 		<strong>Honest limitation:</strong> a motivated person can spoof browser geolocation. This is a social
-		tool for friends, coworkers, and events — not a secure election system. GPS is also fuzzy indoors,
+		tool for friends, coworkers, and events, not a secure election system. GPS is also fuzzy indoors,
 		so the check allows a reasonable accuracy margin; if legit voters get rejected, the creator can widen
 		the radius.
 	</p>
@@ -45,7 +45,7 @@
 <section>
 	<h2>Anonymity, honestly</h2>
 	<p>
-		Anonymous polls (the default) never associate votes with names — the server refuses to store a
+		Anonymous polls (the default) never associate votes with names: the server refuses to store a
 		name even if one is sent. Named polls show the voter list to everyone watching results.
 	</p>
 </section>
@@ -55,7 +55,7 @@
 	<p>
 		A random cookie keeps one vote per device and lets you change your vote while the poll is open.
 		This is best-effort: a private/incognito window gets a fresh cookie and could vote again. We
-		accept that tradeoff rather than fingerprint your browser — there is no tracking, no third-party
+		accept that tradeoff rather than fingerprint your browser. There is no tracking, no third-party
 		analytics, and no IP logging beyond short-lived standard server logs.
 	</p>
 </section>

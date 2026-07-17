@@ -4,14 +4,14 @@
 </script>
 
 <svelte:head>
-	<title>Not found — Show of Hands</title>
+	<title>Not found - Show of Hands</title>
 </svelte:head>
 
 <div class="card wrap">
 	{#if page.status === 404}
 		<h1>Nothing here 🤷</h1>
 		<p>
-			This poll doesn't exist, or it expired and self-destructed. Polls delete themselves — that's
+			This poll doesn't exist, or it expired and self-destructed. Polls delete themselves; that's
 			the point.
 		</p>
 	{:else if page.status === 429}
