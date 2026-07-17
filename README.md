@@ -65,6 +65,12 @@ Deploys as one container (Fly.io, Railway, anything that runs Node). Mount a
 volume at `./data` if you want polls to survive restarts — losing them is
 acceptable by design.
 
+The production instance runs bare-metal on a shared DigitalOcean droplet at
+https://showhands.rexlorenzo.com (systemd + Caddy, no Docker): see `deploy/`
+for the service unit, Caddy site block, env template, and the `deploy.sh`
+that CI runs over SSH on every push to `main`. `GET /healthz` returns `ok`
+and exercises the database; point uptime monitors at it.
+
 ## Anti-abuse posture (documented tradeoffs)
 
 - One vote per device via a signed random cookie. Incognito defeats it —

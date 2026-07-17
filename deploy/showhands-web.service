@@ -1,0 +1,29 @@
+# systemd unit for the Show of Hands app server on the small-apps droplet.
+# Install: cp to /etc/systemd/system/showhands-web.service, create
+# /opt/showhands/app/.env (see env.example), then:
+#   systemctl daemon-reload && systemctl enable --now showhands-web
+
+[Unit]
+Description=Show of Hands web (SvelteKit adapter-node)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=showhands
+Group=showhands
+WorkingDirectory=/opt/showhands/app
+EnvironmentFile=/opt/showhands/app/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node build/index.js
+Restart=always
+RestartSec=3
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
