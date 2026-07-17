@@ -10,6 +10,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: false
 
+# No job writes to the repo; the deploy job authenticates to the droplet
+# with its own SSH key rather than GITHUB_TOKEN.
+permissions:
+  contents: read
+
 jobs:
   checks:
     name: Lint, typecheck, unit tests, build
@@ -19,7 +24,7 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -49,7 +54,7 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
