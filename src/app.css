@@ -1,0 +1,191 @@
+:root {
+	--accent: #e85d2f;
+	--accent-dark: #c94a20;
+	--accent-soft: #fdeee7;
+	--bg: #faf8f5;
+	--surface: #ffffff;
+	--text: #1c1917;
+	--text-muted: #78716c;
+	--border: #e7e2dc;
+	--danger: #b91c1c;
+	--radius: 14px;
+	--shadow: 0 1px 3px rgba(28, 25, 23, 0.08), 0 4px 16px rgba(28, 25, 23, 0.06);
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+}
+
+body {
+	margin: 0;
+	font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+	background: var(--bg);
+	color: var(--text);
+	line-height: 1.45;
+}
+
+.shell {
+	max-width: 480px;
+	margin: 0 auto;
+	padding: 16px 16px 48px;
+	min-height: 100dvh;
+	display: flex;
+	flex-direction: column;
+}
+
+.brand {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	text-decoration: none;
+	color: var(--text);
+	font-weight: 800;
+	font-size: 1.05rem;
+	padding: 8px 0 16px;
+}
+
+.brand .hand {
+	font-size: 1.3rem;
+}
+
+main {
+	flex: 1;
+}
+
+.site-footer {
+	padding-top: 32px;
+	font-size: 0.8rem;
+	color: var(--text-muted);
+	display: flex;
+	gap: 16px;
+}
+
+.site-footer a {
+	color: var(--text-muted);
+}
+
+h1 {
+	font-size: 1.6rem;
+	line-height: 1.2;
+	margin: 0 0 12px;
+	overflow-wrap: anywhere;
+}
+
+.card {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	box-shadow: var(--shadow);
+	padding: 16px;
+}
+
+button,
+input,
+select {
+	font: inherit;
+}
+
+input[type="text"] {
+	width: 100%;
+	padding: 13px 14px;
+	border: 1.5px solid var(--border);
+	border-radius: 10px;
+	background: var(--surface);
+	color: var(--text);
+}
+
+input[type="text"]:focus {
+	outline: 2px solid var(--accent);
+	outline-offset: 1px;
+	border-color: transparent;
+}
+
+.btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	width: 100%;
+	min-height: 52px;
+	padding: 12px 18px;
+	border: none;
+	border-radius: 12px;
+	background: var(--accent);
+	color: #fff;
+	font-weight: 700;
+	font-size: 1.05rem;
+	cursor: pointer;
+	touch-action: manipulation;
+}
+
+.btn:active {
+	background: var(--accent-dark);
+}
+
+.btn:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+
+.btn-secondary {
+	background: var(--surface);
+	color: var(--text);
+	border: 1.5px solid var(--border);
+	font-weight: 600;
+}
+
+.btn-secondary:active {
+	background: var(--accent-soft);
+}
+
+.btn-danger {
+	background: transparent;
+	color: var(--danger);
+	border: 1.5px solid color-mix(in srgb, var(--danger) 35%, transparent);
+}
+
+.btn-small {
+	width: auto;
+	min-height: 40px;
+	font-size: 0.9rem;
+	padding: 8px 14px;
+}
+
+.chip {
+	padding: 8px 14px;
+	border-radius: 999px;
+	border: 1.5px solid var(--border);
+	background: var(--surface);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.chip.active {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: #fff;
+}
+
+.muted {
+	color: var(--text-muted);
+	font-size: 0.9rem;
+}
+
+.error-text {
+	color: var(--danger);
+	font-size: 0.92rem;
+	margin: 8px 0 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	* {
+		/* biome-ignore lint/complexity/noImportantStyles: global kill switch must beat every scoped rule */
+		animation: none !important;
+		/* biome-ignore lint/complexity/noImportantStyles: global kill switch must beat every scoped rule */
+		transition: none !important;
+	}
+}
