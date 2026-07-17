@@ -23,9 +23,18 @@ export const GRACE_SECONDS = 86_400; // results stay visible 24h after expiry
 /** Strip HTML tags and control characters, collapse whitespace, trim. */
 export function sanitizeText(raw: unknown, maxLength: number): string {
 	if (typeof raw !== 'string') return '';
+	// Strip tags until the text stops changing: one pass can splice leftovers
+	// into a fresh tag (`<<a>script>` -> `<script>`). The [<>] sweep below is
+	// what actually guarantees no markup survives, but leaving a single pass
+	// here means the intermediate text is a lie about what was removed.
+	let text = raw;
+	let previous: string;
+	do {
+		previous = text;
+		text = text.replace(/<[^>]*>/g, '');
+	} while (text !== previous);
 	return (
-		raw
-			.replace(/<[^>]*>/g, '')
+		text
 			.replace(/[<>]/g, '')
 			// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping control characters is this function's job
 			.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g, '')
