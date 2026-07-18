@@ -11,6 +11,7 @@ import {
 	castVote,
 	closePoll,
 	createPoll,
+	deleteOption,
 	deletePoll,
 	effectiveStatus,
 	getCounts,
@@ -229,6 +230,37 @@ describe('polls', () => {
 		const payload = resultsPayload(db, getPoll(db, id, NOW)!, NOW);
 		expect(payload.options.map((o) => o.label)).toEqual(['Tacos', 'Ramen', 'Sushi']);
 		expect(payload.counts?.[String(added.id)]).toBe(1);
+	});
+
+	it('deleteOption removes the option and cascades its votes', () => {
+		const { id } = createPoll(db, makeInput({ options: ['Tacos', 'Ramen', 'Sushi'] }), NOW);
+		const [tacos, , sushi] = getOptions(db, id);
+		castVote(db, { pollId: id, deviceHash: 'dev1', optionIds: [sushi.id], displayName: null }, NOW);
+		castVote(db, { pollId: id, deviceHash: 'dev2', optionIds: [tacos.id], displayName: null }, NOW);
+
+		expect(deleteOption(db, id, sushi.id)).toBe('deleted');
+		expect(getOptions(db, id).map((o) => o.label)).toEqual(['Tacos', 'Ramen']);
+		// dev1's vote is gone with the option; only dev2 remains counted
+		const { counts, total } = getCounts(db, id);
+		expect(total).toBe(1);
+		expect(counts[String(sushi.id)]).toBeUndefined();
+		expect(getDeviceVote(db, id, 'dev1')).toBeNull();
+	});
+
+	it('deleteOption never drops a poll below the option minimum', () => {
+		const { id } = createPoll(db, makeInput(), NOW);
+		const [tacos] = getOptions(db, id);
+		expect(deleteOption(db, id, tacos.id)).toBe('min_reached');
+		expect(getOptions(db, id)).toHaveLength(2);
+	});
+
+	it('deleteOption reports unknown or foreign option ids as not found', () => {
+		const { id } = createPoll(db, makeInput({ options: ['A', 'B', 'C'] }), NOW);
+		const { id: other } = createPoll(db, makeInput({ options: ['X', 'Y', 'Z'] }), NOW);
+		const [x] = getOptions(db, other);
+		expect(deleteOption(db, id, 999_999)).toBe('not_found');
+		expect(deleteOption(db, id, x.id)).toBe('not_found');
+		expect(getOptions(db, other)).toHaveLength(3);
 	});
 
 	it('closePoll clamps expires_at so the grace countdown starts at close time', () => {

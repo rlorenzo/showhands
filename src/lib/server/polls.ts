@@ -1,6 +1,6 @@
 import type { Database } from 'better-sqlite3';
 import type { PollView } from '$lib/types';
-import { GRACE_SECONDS, WRITEIN_TOTAL_MAX } from '$lib/validation';
+import { GRACE_SECONDS, OPTIONS_MIN, WRITEIN_TOTAL_MAX } from '$lib/validation';
 import { closeChannel, publish, type ResultsPayload } from './broadcast';
 import { roundCoord } from './geo';
 import { generatePollId } from './ids';
@@ -164,6 +164,25 @@ export function addWriteInOption(
 			.prepare('INSERT INTO options (poll_id, label, position) VALUES (?, ?, ?)')
 			.run(pollId, label, position);
 		return { id: Number(result.lastInsertRowid) };
+	});
+	return txn();
+}
+
+/**
+ * Creator moderation: remove one option (and, via cascade, its votes).
+ * A poll never drops below OPTIONS_MIN options, so it stays votable.
+ */
+export function deleteOption(
+	db: Database,
+	pollId: string,
+	optionId: number
+): 'deleted' | 'not_found' | 'min_reached' {
+	const txn = db.transaction((): 'deleted' | 'not_found' | 'min_reached' => {
+		const options = getOptions(db, pollId);
+		if (!options.some((o) => o.id === optionId)) return 'not_found';
+		if (options.length <= OPTIONS_MIN) return 'min_reached';
+		db.prepare('DELETE FROM options WHERE id = ? AND poll_id = ?').run(optionId, pollId);
+		return 'deleted';
 	});
 	return txn();
 }

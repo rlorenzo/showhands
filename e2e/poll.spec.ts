@@ -123,8 +123,9 @@ test.describe('Flow B: vote', () => {
 		await expect(voter.getByText('Sushi')).toBeVisible();
 		await expect(voter.getByText('✓ you')).toBeVisible();
 
-		// the creator's open page picks up the new option over SSE
-		await expect(page.getByText('Sushi')).toBeVisible({ timeout: 2000 });
+		// the creator's open page picks up the new option over SSE — scoped to the
+		// result bars: the label also exists in the collapsed moderation list
+		await expect(page.locator('.results').getByText('Sushi')).toBeVisible({ timeout: 2000 });
 
 		// a later voter sees the write-in as a normal choice; same label merges
 		const voter2 = await newVoter(browser, id);
@@ -137,6 +138,41 @@ test.describe('Flow B: vote', () => {
 
 		await voter.context().close();
 		await voter2.context().close();
+	});
+
+	test('creator removes a single option; its voter gets the form back live', async ({
+		page,
+		browser
+	}) => {
+		const id = await createPoll(page, {
+			question: 'Snacks?',
+			options: ['Chips', 'Fruit'],
+			writein: true
+		});
+
+		const voter = await newVoter(browser, id);
+		await voter.getByLabel('Write in your own option').fill('Rude thing');
+		await voter.getByRole('button', { name: 'Vote', exact: true }).click();
+		await expect(voter.getByText(/^1 vote$/)).toBeVisible();
+
+		// creator moderates the write-in away (confirm flow)
+		await page.getByText('Remove an option').click();
+		await page.getByRole('button', { name: 'Remove option Rude thing' }).click();
+		await page.getByRole('button', { name: 'Remove option', exact: true }).click();
+		await expect(page.getByText('Rude thing')).toHaveCount(0);
+
+		// the voter's vote went with it: over SSE their page returns to the form
+		await expect(voter.getByRole('button', { name: 'Vote', exact: true })).toBeVisible({
+			timeout: 2000
+		});
+		await expect(voter.getByText('Rude thing')).toHaveCount(0);
+
+		// and they can vote again
+		await voter.getByRole('button', { name: 'Chips' }).click();
+		await voter.getByRole('button', { name: 'Vote', exact: true }).click();
+		await expect(voter.getByText(/^1 vote$/)).toBeVisible();
+
+		await voter.context().close();
 	});
 
 	test('named poll requires a name and lists voters', async ({ page, browser }) => {

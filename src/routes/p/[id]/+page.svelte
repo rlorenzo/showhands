@@ -7,7 +7,7 @@
 	import Seo from '$lib/components/Seo.svelte';
 	import SharePanel from '$lib/components/SharePanel.svelte';
 	import type { ResultsView } from '$lib/types';
-	import { NAME_MAX, OPTION_MAX, RADII_M, WRITEIN_TOTAL_MAX } from '$lib/validation';
+	import { NAME_MAX, OPTION_MAX, OPTIONS_MIN, RADII_M, WRITEIN_TOTAL_MAX } from '$lib/validation';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -35,6 +35,9 @@
 	let closing = $state(false);
 	let justVoted = $state(false);
 	let confirmAction = $state<null | 'close' | 'delete'>(null);
+	let confirmRemove = $state<{ id: number; label: string } | null>(null);
+	let removing = $state(false);
+	let removeError = $state('');
 
 	const status = $derived(results.status);
 	const showVoteForm = $derived(status === 'open' && (!hasVoted || editingVote));
@@ -44,6 +47,23 @@
 	const liveOptions = $derived(results.options ?? poll.options);
 	const writeInFull = $derived(liveOptions.length >= WRITEIN_TOTAL_MAX);
 	const canVote = $derived(selected.length > 0 || writeIn.trim().length > 0);
+
+	// The creator can remove options mid-poll; drop any local reference to an
+	// option that no longer exists. If this device's entire vote was on it,
+	// hand the vote form back so the voter can pick again.
+	$effect(() => {
+		const valid = new Set(liveOptions.map((o) => o.id));
+		if (selected.some((id) => !valid.has(id))) {
+			selected = selected.filter((id) => valid.has(id));
+		}
+		if (myOptionIds.some((id) => !valid.has(id))) {
+			myOptionIds = myOptionIds.filter((id) => valid.has(id));
+			if (hasVoted && myOptionIds.length === 0) {
+				hasVoted = false;
+				justVoted = false;
+			}
+		}
+	});
 
 	// --- countdown ---------------------------------------------------------
 	let clockOffset = untrack(() => data.serverNow) - Math.floor(Date.now() / 1000);
@@ -254,6 +274,25 @@
 		if (res.ok) goto(resolve('/'));
 	}
 
+	async function removeOption(id: number) {
+		if (removing) return;
+		removing = true;
+		removeError = '';
+		try {
+			const res = await fetch(`/api/polls/${poll.id}/options/${id}`, { method: 'DELETE' });
+			const data = await res.json();
+			if (!res.ok) {
+				removeError = data.error ?? 'Could not remove the option. Try again.';
+			} else {
+				results = data.results;
+				confirmRemove = null;
+			}
+		} catch {
+			removeError = 'Network error. Try again.';
+		}
+		removing = false;
+	}
+
 	async function bumpRadius(r: number) {
 		await fetch(`/api/polls/${poll.id}`, {
 			method: 'PATCH',
@@ -355,6 +394,53 @@
 				</button>
 			</div>
 		</div>
+	{/if}
+	{#if status === 'open' && liveOptions.length > OPTIONS_MIN}
+		<details class="manage-options">
+			<summary class="muted">Remove an option</summary>
+			<ul class="option-list">
+				{#each liveOptions as option (option.id)}
+					<li>
+						<span class="option-label">{option.label}</span>
+						<button
+							type="button"
+							class="remove-option"
+							onclick={() => (confirmRemove = option)}
+							aria-label="Remove option {option.label}">✕</button
+						>
+					</li>
+				{/each}
+			</ul>
+			{#if removeError}
+				<p class="error-text" role="alert">{removeError}</p>
+			{/if}
+		</details>
+		{#if confirmRemove}
+			{@const target = confirmRemove}
+			<div class="card confirm-card">
+				<p>
+					<strong>Remove “{target.label}”?</strong> Its votes are deleted; anyone who picked it can vote
+					again.
+				</p>
+				<div class="confirm-row">
+					<button
+						type="button"
+						class="btn btn-danger btn-small"
+						onclick={() => removeOption(target.id)}
+						disabled={removing}
+					>
+						Remove option
+					</button>
+					<button
+						type="button"
+						class="btn btn-secondary btn-small"
+						onclick={() => (confirmRemove = null)}
+					>
+						Keep it
+					</button>
+				</div>
+			</div>
+		{/if}
 	{/if}
 	{#if status === 'open' && poll.geofenced}
 		<details class="radius-bump">
@@ -583,8 +669,41 @@
 		margin-bottom: 12px;
 	}
 
-	.radius-bump {
+	.radius-bump,
+	.manage-options {
 		margin-bottom: 12px;
+	}
+
+	.option-list {
+		list-style: none;
+		margin: 0;
+		padding: 8px 0 0;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.option-list li {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+	}
+
+	.option-label {
+		overflow-wrap: anywhere;
+	}
+
+	.remove-option {
+		flex: 0 0 auto;
+		width: 40px;
+		height: 40px;
+		border: none;
+		border-radius: 10px;
+		background: transparent;
+		color: var(--text-muted);
+		cursor: pointer;
+		font-size: 1rem;
 	}
 
 	.radius-options {
