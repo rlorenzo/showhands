@@ -28,6 +28,7 @@ export interface OptionRow {
 	poll_id: string;
 	label: string;
 	position: number;
+	is_writein: number;
 }
 
 export function nowSeconds(): number {
@@ -161,7 +162,7 @@ export function addWriteInOption(
 		if (options.length >= WRITEIN_TOTAL_MAX) return { full: true };
 		const position = options.length === 0 ? 0 : options[options.length - 1].position + 1;
 		const result = db
-			.prepare('INSERT INTO options (poll_id, label, position) VALUES (?, ?, ?)')
+			.prepare('INSERT INTO options (poll_id, label, position, is_writein) VALUES (?, ?, ?, 1)')
 			.run(pollId, label, position);
 		return { id: Number(result.lastInsertRowid) };
 	});
@@ -185,6 +186,23 @@ export function deleteOption(
 		return 'deleted';
 	});
 	return txn();
+}
+
+/**
+ * Drop voter write-in options that no longer hold any vote — e.g. a voter added
+ * a write-in, then changed their mind and recast, leaving it abandoned. Only
+ * write-ins (is_writein = 1) are eligible; seeded options are never touched, so
+ * a poll can't fall below its original set. Returns the number pruned.
+ */
+export function pruneOrphanWriteins(db: Database, pollId: string): number {
+	const result = db
+		.prepare(
+			`DELETE FROM options
+			 WHERE poll_id = ? AND is_writein = 1
+			   AND id NOT IN (SELECT option_id FROM votes WHERE poll_id = ?)`
+		)
+		.run(pollId, pollId);
+	return result.changes;
 }
 
 export interface CastVoteInput {

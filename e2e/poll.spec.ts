@@ -175,6 +175,38 @@ test.describe('Flow B: vote', () => {
 		await voter.context().close();
 	});
 
+	test('the vote endpoint prunes an abandoned write-in when its author recasts', async ({
+		page,
+		browser
+	}) => {
+		const id = await createPoll(page, {
+			question: 'Lunch?',
+			options: ['Tacos', 'Ramen'],
+			writein: true
+		});
+		const labels = (r: { options: { label: string }[] }) => r.options.map((o) => o.label);
+
+		const voter = await newVoter(browser, id);
+		// voter writes in Sushi
+		const first = await voter.request.post(`/api/polls/${id}/vote`, {
+			data: { optionIds: [], writeIn: 'Sushi' }
+		});
+		expect(first.ok()).toBeTruthy();
+		const firstBody = await first.json();
+		expect(labels(firstBody.results)).toEqual(['Tacos', 'Ramen', 'Sushi']);
+		const tacos = firstBody.results.options.find((o: { label: string }) => o.label === 'Tacos');
+
+		// same voter recasts to a seeded option — Sushi held only their vote
+		const second = await voter.request.post(`/api/polls/${id}/vote`, {
+			data: { optionIds: [tacos.id] }
+		});
+		expect(second.ok()).toBeTruthy();
+		// the abandoned write-in is gone from the live option list everyone sees
+		expect(labels((await second.json()).results)).toEqual(['Tacos', 'Ramen']);
+
+		await voter.context().close();
+	});
+
 	test('named poll requires a name and lists voters', async ({ page, browser }) => {
 		const id = await createPoll(page, {
 			question: 'Named poll',

@@ -19,6 +19,7 @@ import {
 	getOptions,
 	getPoll,
 	getVoterNames,
+	pruneOrphanWriteins,
 	resultsPayload,
 	sweep,
 	toPollView,
@@ -230,6 +231,50 @@ describe('polls', () => {
 		const payload = resultsPayload(db, getPoll(db, id, NOW)!, NOW);
 		expect(payload.options.map((o) => o.label)).toEqual(['Tacos', 'Ramen', 'Sushi']);
 		expect(payload.counts?.[String(added.id)]).toBe(1);
+	});
+
+	it('prunes a write-in once its only voter recasts away from it', () => {
+		const { id } = createPoll(db, makeInput({ allowWritein: true }), NOW);
+		const [tacos] = getOptions(db, id);
+		const sushi = addWriteInOption(db, id, 'Sushi') as { id: number };
+		castVote(db, { pollId: id, deviceHash: 'dev1', optionIds: [sushi.id], displayName: null }, NOW);
+
+		// dev1 changes their mind; Sushi held only their vote, so it's abandoned
+		castVote(db, { pollId: id, deviceHash: 'dev1', optionIds: [tacos.id], displayName: null }, NOW);
+		expect(pruneOrphanWriteins(db, id)).toBe(1);
+		expect(getOptions(db, id).map((o) => o.label)).toEqual(['Tacos', 'Ramen']);
+	});
+
+	it('keeps an abandoned write-in that another voter still holds', () => {
+		const { id } = createPoll(db, makeInput({ allowWritein: true }), NOW);
+		const [tacos] = getOptions(db, id);
+		const sushi = addWriteInOption(db, id, 'Sushi') as { id: number };
+		castVote(db, { pollId: id, deviceHash: 'dev1', optionIds: [sushi.id], displayName: null }, NOW);
+		castVote(db, { pollId: id, deviceHash: 'dev2', optionIds: [sushi.id], displayName: null }, NOW);
+
+		// dev1 leaves Sushi, but dev2 still holds it — it survives
+		castVote(db, { pollId: id, deviceHash: 'dev1', optionIds: [tacos.id], displayName: null }, NOW);
+		expect(pruneOrphanWriteins(db, id)).toBe(0);
+		expect(getOptions(db, id).map((o) => o.label)).toContain('Sushi');
+	});
+
+	it('never prunes seeded options, even with zero votes', () => {
+		// The whole reason for the is_writein flag: a seeded option with no votes
+		// must stay, or a poll could be pruned below its original set.
+		const { id } = createPoll(db, makeInput({ options: ['A', 'B', 'C'] }), NOW);
+		expect(pruneOrphanWriteins(db, id)).toBe(0);
+		expect(getOptions(db, id)).toHaveLength(3);
+	});
+
+	it('leaves only the corrected label after a typo write-in is fixed', () => {
+		const { id } = createPoll(db, makeInput({ allowWritein: true }), NOW);
+		const typo = addWriteInOption(db, id, 'Piza') as { id: number };
+		castVote(db, { pollId: id, deviceHash: 'dev1', optionIds: [typo.id], displayName: null }, NOW);
+		// same voter re-writes the correct spelling (a distinct label) and recasts
+		const fixed = addWriteInOption(db, id, 'Pizza') as { id: number };
+		castVote(db, { pollId: id, deviceHash: 'dev1', optionIds: [fixed.id], displayName: null }, NOW);
+		pruneOrphanWriteins(db, id);
+		expect(getOptions(db, id).map((o) => o.label)).toEqual(['Tacos', 'Ramen', 'Pizza']);
 	});
 
 	it('deleteOption removes the option and cascades its votes', () => {

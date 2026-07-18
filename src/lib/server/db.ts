@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS options (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   poll_id TEXT NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
   label TEXT NOT NULL,
-  position INTEGER NOT NULL
+  position INTEGER NOT NULL,
+  is_writein INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS votes (
@@ -62,6 +63,10 @@ function migrate(db: Database.Database) {
 	const pollCols = (db.pragma("table_info('polls')") as { name: string }[]).map((c) => c.name);
 	if (!pollCols.includes('allow_writein')) {
 		db.exec('ALTER TABLE polls ADD COLUMN allow_writein INTEGER NOT NULL DEFAULT 0');
+	}
+	const optionCols = (db.pragma("table_info('options')") as { name: string }[]).map((c) => c.name);
+	if (!optionCols.includes('is_writein')) {
+		db.exec('ALTER TABLE options ADD COLUMN is_writein INTEGER NOT NULL DEFAULT 0');
 	}
 }
 

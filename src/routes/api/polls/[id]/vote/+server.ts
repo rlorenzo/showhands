@@ -8,6 +8,7 @@ import {
 	effectiveStatus,
 	getOptions,
 	getPoll,
+	pruneOrphanWriteins,
 	publishResults,
 	resultsPayload
 } from '$lib/server/polls';
@@ -122,6 +123,9 @@ export const POST: RequestHandler = async ({ params, request, locals, getClientA
 
 	const deviceHash = deviceHashForPoll(locals.deviceId, pollId);
 	castVote(db, { pollId, deviceHash, optionIds, displayName });
+	// A recast may have abandoned a write-in this device previously added; clear
+	// any write-in that no longer holds a vote so the option list stays honest.
+	if (poll.allow_writein === 1) pruneOrphanWriteins(db, pollId);
 	publishResults(db, poll);
 
 	// optionIds echoes the recorded vote so the client can mark a freshly
