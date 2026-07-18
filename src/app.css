@@ -173,6 +173,19 @@ input[type="text"]:focus {
 	padding: 8px 14px;
 }
 
+/* Small transparent ✕/icon button (remove an option, dismiss a row). */
+.icon-btn {
+	flex: 0 0 auto;
+	width: 40px;
+	height: 40px;
+	border: none;
+	border-radius: 10px;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 1rem;
+}
+
 .chip {
 	padding: 8px 14px;
 	border-radius: 999px;
@@ -189,6 +202,7 @@ input[type="text"]:focus {
 }
 
 .btn:focus-visible,
+.icon-btn:focus-visible,
 .chip:focus-visible,
 .choice:focus-visible,
 select:focus-visible,

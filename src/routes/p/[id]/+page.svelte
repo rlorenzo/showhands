@@ -1,13 +1,15 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import ResultBars from '$lib/components/ResultBars.svelte';
+	import CreatorControls from '$lib/components/CreatorControls.svelte';
+	import PollResults from '$lib/components/PollResults.svelte';
 	import Seo from '$lib/components/Seo.svelte';
 	import SharePanel from '$lib/components/SharePanel.svelte';
+	import VoteForm from '$lib/components/VoteForm.svelte';
 	import type { ResultsView } from '$lib/types';
-	import { NAME_MAX, OPTION_MAX, OPTIONS_MIN, RADII_M, WRITEIN_TOTAL_MAX } from '$lib/validation';
+	import { WRITEIN_TOTAL_MAX } from '$lib/validation';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -32,12 +34,7 @@
 	let geoDenied = $state(false);
 
 	let showShare = $state(false);
-	let closing = $state(false);
 	let justVoted = $state(false);
-	let confirmAction = $state<null | 'close' | 'delete'>(null);
-	let confirmRemove = $state<{ id: number; label: string } | null>(null);
-	let removing = $state(false);
-	let removeError = $state('');
 
 	const status = $derived(results.status);
 	const showVoteForm = $derived(status === 'open' && (!hasVoted || editingVote));
@@ -177,10 +174,77 @@
 		return new Promise((resolve, reject) => {
 			navigator.geolocation.getCurrentPosition(resolve, reject, {
 				enableHighAccuracy: true,
-				timeout: 15000,
-				maximumAge: 30000
+				timeout: 10000,
+				maximumAge: 60000
 			});
 		});
+	}
+
+	// Assemble the vote request body. Returns null (with voteError set) when a
+	// required name is missing on a named poll.
+	function buildVoteBody(): Record<string, unknown> | null {
+		const body: Record<string, unknown> = { optionIds: selected };
+		if (poll.allowWritein && !writeInFull && writeIn.trim()) body.writeIn = writeIn.trim();
+		if (!poll.isAnonymous) {
+			const name = displayName.trim();
+			if (!name) {
+				voteError = 'Enter your name to vote on this poll.';
+				return null;
+			}
+			body.displayName = name;
+			localStorage.setItem('soh_name', name);
+		}
+		return body;
+	}
+
+	// Attach the voter's coordinates for geofenced polls. Returns false (with UI
+	// state set) when location is unsupported or denied.
+	async function attachLocation(body: Record<string, unknown>): Promise<boolean> {
+		if (!poll.geofenced) return true;
+		if (!('geolocation' in navigator)) {
+			voteError = 'This poll needs your location, but your browser does not support it.';
+			return false;
+		}
+		locating = true;
+		try {
+			const pos = await getPosition();
+			body.lat = pos.coords.latitude;
+			body.lng = pos.coords.longitude;
+			body.accuracy = pos.coords.accuracy;
+			return true;
+		} catch {
+			geoDenied = true;
+			return false;
+		} finally {
+			locating = false;
+		}
+	}
+
+	// Map a failed vote response to the right UI state.
+	async function handleVoteFailure(
+		res: Response,
+		data: { error?: string; distanceM?: number; radiusM?: number }
+	): Promise<void> {
+		if (
+			res.status === 403 &&
+			typeof data.distanceM === 'number' &&
+			typeof data.radiusM === 'number'
+		) {
+			rejection = { distanceM: data.distanceM, radiusM: data.radiusM };
+			return;
+		}
+		if (res.status === 409) {
+			// 409 is overloaded: a closed poll vs a write-in hitting the option cap.
+			// Branch on the x-reason header rather than the message text.
+			voteError =
+				res.headers.get('x-reason') === 'writein-full'
+					? (data.error ?? `This poll hit its ${WRITEIN_TOTAL_MAX}-option limit.`)
+					: 'This poll just closed.';
+			const snap = await fetch(`/api/polls/${poll.id}/results`);
+			if (snap.ok) results = await snap.json();
+			return;
+		}
+		voteError = data.error ?? 'Vote failed. Try again.';
 	}
 
 	async function submitVote() {
@@ -189,39 +253,10 @@
 		rejection = null;
 		submitting = true;
 
-		const body: Record<string, unknown> = { optionIds: selected };
-		if (poll.allowWritein && !writeInFull && writeIn.trim()) body.writeIn = writeIn.trim();
-
-		if (!poll.isAnonymous) {
-			const name = displayName.trim();
-			if (!name) {
-				voteError = 'Enter your name to vote on this poll.';
-				submitting = false;
-				return;
-			}
-			body.displayName = name;
-			localStorage.setItem('soh_name', name);
-		}
-
-		if (poll.geofenced) {
-			if (!('geolocation' in navigator)) {
-				voteError = 'This poll needs your location, but your browser does not support it.';
-				submitting = false;
-				return;
-			}
-			locating = true;
-			try {
-				const pos = await getPosition();
-				body.lat = pos.coords.latitude;
-				body.lng = pos.coords.longitude;
-				body.accuracy = pos.coords.accuracy;
-			} catch {
-				geoDenied = true;
-				locating = false;
-				submitting = false;
-				return;
-			}
-			locating = false;
+		const body = buildVoteBody();
+		if (!body || !(await attachLocation(body))) {
+			submitting = false;
+			return;
 		}
 
 		try {
@@ -231,84 +266,22 @@
 				body: JSON.stringify(body)
 			});
 			const data = await res.json();
-			if (!res.ok) {
-				if (res.status === 403 && typeof data.distanceM === 'number') {
-					rejection = { distanceM: data.distanceM, radiusM: data.radiusM };
-				} else if (res.status === 409) {
-					// 409 is overloaded: a closed poll vs a write-in hitting the option
-					// cap. Branch on the x-reason header rather than the message text.
-					if (res.headers.get('x-reason') === 'writein-full') {
-						voteError = data.error ?? `This poll hit its ${WRITEIN_TOTAL_MAX}-option limit.`;
-					} else {
-						voteError = 'This poll just closed.';
-					}
-					const snap = await fetch(`/api/polls/${poll.id}/results`);
-					if (snap.ok) results = await snap.json();
-				} else {
-					voteError = data.error ?? 'Vote failed. Try again.';
-				}
-				submitting = false;
-				return;
+			if (res.ok) {
+				results = data.results;
+				// The server echoes the recorded ids — a write-in's id is only known there.
+				myOptionIds = Array.isArray(data.optionIds) ? data.optionIds : [...selected];
+				selected = [...myOptionIds];
+				writeIn = '';
+				hasVoted = true;
+				editingVote = false;
+				justVoted = true;
+			} else {
+				await handleVoteFailure(res, data);
 			}
-			results = data.results;
-			// The server echoes the recorded ids — a write-in's id is only known there.
-			myOptionIds = Array.isArray(data.optionIds) ? data.optionIds : [...selected];
-			selected = [...myOptionIds];
-			writeIn = '';
-			hasVoted = true;
-			editingVote = false;
-			justVoted = true;
 		} catch {
 			voteError = 'Network error. Try again.';
 		}
 		submitting = false;
-	}
-
-	// --- creator actions -----------------------------------------------------
-	async function closeNow() {
-		if (closing) return;
-		closing = true;
-		confirmAction = null;
-		const res = await fetch(`/api/polls/${poll.id}/close`, { method: 'POST' });
-		if (res.ok) {
-			const snap = await fetch(`/api/polls/${poll.id}/results`);
-			if (snap.ok) results = await snap.json();
-		}
-		closing = false;
-	}
-
-	async function deleteNow() {
-		confirmAction = null;
-		const res = await fetch(`/api/polls/${poll.id}`, { method: 'DELETE' });
-		if (res.ok) goto(resolve('/'));
-	}
-
-	async function removeOption(id: number) {
-		if (removing) return;
-		removing = true;
-		removeError = '';
-		try {
-			const res = await fetch(`/api/polls/${poll.id}/options/${id}`, { method: 'DELETE' });
-			const data = await res.json();
-			if (!res.ok) {
-				removeError = data.error ?? 'Could not remove the option. Try again.';
-			} else {
-				results = data.results;
-				confirmRemove = null;
-			}
-		} catch {
-			removeError = 'Network error. Try again.';
-		}
-		removing = false;
-	}
-
-	async function bumpRadius(r: number) {
-		await fetch(`/api/polls/${poll.id}`, {
-			method: 'PATCH',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ radiusM: r })
-		});
-		await invalidateAll();
 	}
 
 	function fmtDistance(m: number): string {
@@ -345,129 +318,7 @@
 </p>
 
 {#if data.isCreator}
-	<div class="creator-bar">
-		<button
-			type="button"
-			class="btn btn-secondary btn-small"
-			onclick={() => (showShare = !showShare)}
-		>
-			{showShare ? 'Hide sharing' : 'Share poll'}
-		</button>
-		{#if status === 'open'}
-			<button
-				type="button"
-				class="btn btn-secondary btn-small"
-				onclick={() => (confirmAction = confirmAction === 'close' ? null : 'close')}
-				disabled={closing}
-			>
-				Close now
-			</button>
-		{/if}
-		<button
-			type="button"
-			class="btn btn-danger btn-small"
-			onclick={() => (confirmAction = confirmAction === 'delete' ? null : 'delete')}
-		>
-			Delete
-		</button>
-	</div>
-	{#if confirmAction === 'close'}
-		<div class="card confirm-card">
-			<p><strong>Close this poll now?</strong> Voting stops and the tally becomes final.</p>
-			<div class="confirm-row">
-				<button type="button" class="btn btn-small" onclick={closeNow} disabled={closing}>
-					Close poll
-				</button>
-				<button
-					type="button"
-					class="btn btn-secondary btn-small"
-					onclick={() => (confirmAction = null)}
-				>
-					Cancel
-				</button>
-			</div>
-		</div>
-	{:else if confirmAction === 'delete'}
-		<div class="card confirm-card">
-			<p><strong>Delete this poll and every vote?</strong> This cannot be undone.</p>
-			<div class="confirm-row">
-				<button type="button" class="btn btn-danger btn-small" onclick={deleteNow}>
-					Delete now
-				</button>
-				<button
-					type="button"
-					class="btn btn-secondary btn-small"
-					onclick={() => (confirmAction = null)}
-				>
-					Keep poll
-				</button>
-			</div>
-		</div>
-	{/if}
-	{#if status === 'open' && liveOptions.length > OPTIONS_MIN}
-		<details class="manage-options">
-			<summary class="muted">Remove an option</summary>
-			<ul class="option-list">
-				{#each liveOptions as option (option.id)}
-					<li>
-						<span class="option-label">{option.label}</span>
-						<button
-							type="button"
-							class="remove-option"
-							onclick={() => (confirmRemove = option)}
-							aria-label="Remove option {option.label}">✕</button
-						>
-					</li>
-				{/each}
-			</ul>
-			{#if removeError}
-				<p class="error-text" role="alert">{removeError}</p>
-			{/if}
-		</details>
-		{#if confirmRemove}
-			{@const target = confirmRemove}
-			<div class="card confirm-card">
-				<p>
-					<strong>Remove “{target.label}”?</strong> Its votes are deleted; anyone who picked it can vote
-					again.
-				</p>
-				<div class="confirm-row">
-					<button
-						type="button"
-						class="btn btn-danger btn-small"
-						onclick={() => removeOption(target.id)}
-						disabled={removing}
-					>
-						Remove option
-					</button>
-					<button
-						type="button"
-						class="btn btn-secondary btn-small"
-						onclick={() => (confirmRemove = null)}
-					>
-						Keep it
-					</button>
-				</div>
-			</div>
-		{/if}
-	{/if}
-	{#if status === 'open' && poll.geofenced}
-		<details class="radius-bump">
-			<summary class="muted">Friends getting rejected? Widen the radius</summary>
-			<div class="radius-options">
-				{#each RADII_M as r (r)}
-					<button
-						type="button"
-						class="chip"
-						class:active={poll.geofenceRadiusM === r}
-						onclick={() => bumpRadius(r)}
-					>
-						{r >= 1000 ? `${r / 1000} km` : `${r} m`}
-					</button>
-				{/each}
-			</div>
-		</details>
-	{/if}
+	<CreatorControls {poll} {status} {liveOptions} bind:showShare onResults={(r) => (results = r)} />
 {/if}
 
 {#if showShare}
@@ -502,80 +353,23 @@
 		<button type="button" class="btn btn-secondary" onclick={() => (rejection = null)}>Back</button>
 	</div>
 {:else if showVoteForm}
-	<div class="vote-form">
-		{#if poll.geofenced}
-			<p class="muted geo-note">
-				📍 This poll is limited to people near its creator. Your location is checked once when you
-				vote and never stored.
-			</p>
-		{/if}
-
-		<div class="choices" role="group" aria-label="Poll options">
-			{#each liveOptions as option (option.id)}
-				<button
-					type="button"
-					class="choice"
-					class:selected={selected.includes(option.id)}
-					aria-pressed={selected.includes(option.id)}
-					onclick={() => toggleOption(option.id)}
-				>
-					<span class="check" aria-hidden="true">{selected.includes(option.id) ? '●' : '○'}</span>
-					{option.label}
-				</button>
-			{/each}
-		</div>
-		{#if poll.allowWritein}
-			{#if writeInFull}
-				<p class="muted writein-note">This poll hit its {WRITEIN_TOTAL_MAX}-option limit.</p>
-			{:else}
-				<div class="writein" class:selected={writeIn.trim().length > 0}>
-					<span class="check" aria-hidden="true">{writeIn.trim() ? '●' : '○'}</span>
-					<input
-						type="text"
-						class="writein-input"
-						placeholder={poll.allowMulti ? 'Add your own option' : 'Or write your own…'}
-						bind:value={writeIn}
-						oninput={onWriteInInput}
-						maxlength={OPTION_MAX}
-						aria-label="Write in your own option"
-					/>
-				</div>
-			{/if}
-		{/if}
-		{#if poll.allowMulti}
-			<p class="muted">Pick as many as you like.</p>
-		{/if}
-
-		{#if !poll.isAnonymous}
-			<input
-				type="text"
-				class="name-input"
-				placeholder="Your name"
-				bind:value={displayName}
-				maxlength={NAME_MAX}
-				autocomplete="name"
-				aria-label="Your display name"
-			/>
-		{/if}
-
-		{#if voteError}
-			<p class="error-text" role="alert">{voteError}</p>
-		{/if}
-
-		<button
-			type="button"
-			class="btn vote-btn"
-			onclick={submitVote}
-			disabled={!canVote || submitting}
-		>
-			{#if locating}Checking location…{:else if submitting}Voting…{:else if editingVote}Update vote{:else}Vote{/if}
-		</button>
-		{#if editingVote}
-			<button type="button" class="btn btn-secondary" onclick={() => (editingVote = false)}>
-				Cancel
-			</button>
-		{/if}
-	</div>
+	<VoteForm
+		{poll}
+		{liveOptions}
+		{selected}
+		bind:writeIn
+		bind:displayName
+		{writeInFull}
+		{canVote}
+		{voteError}
+		{submitting}
+		{locating}
+		{editingVote}
+		onToggle={toggleOption}
+		{onWriteInInput}
+		onSubmit={submitVote}
+		onCancelEdit={() => (editingVote = false)}
+	/>
 {:else if resultsHidden}
 	<div class="card notice">
 		<h2>{results.total} {results.total === 1 ? 'vote' : 'votes'} so far</h2>
@@ -587,44 +381,19 @@
 		{/if}
 	</div>
 {:else}
-	<div class="results-wrap">
-		{#if justVoted && status === 'open'}
-			<p class="voted-note" role="status">✋ Vote counted, you're in.</p>
-		{/if}
-
-		{#if !hasVoted && status === 'open'}
-			<p class="muted">You haven't voted yet.</p>
-			<button type="button" class="btn" onclick={() => (editingVote = true)}>Vote</button>
-		{/if}
-
-		<ResultBars
-			options={liveOptions}
-			counts={results.counts ?? {}}
-			total={results.total}
-			{myOptionIds}
-			closed={status !== 'open'}
-		/>
-
-		{#if hasVoted && status === 'open'}
-			<button
-				type="button"
-				class="btn btn-secondary change-btn"
-				onclick={() => {
-					selected = [...myOptionIds];
-					editingVote = true;
-				}}
-			>
-				Change my vote
-			</button>
-		{/if}
-
-		{#if results.voters && results.voters.length > 0}
-			<div class="voters">
-				<h2>Who voted</h2>
-				<p>{results.voters.join(', ')}</p>
-			</div>
-		{/if}
-	</div>
+	<PollResults
+		{liveOptions}
+		{results}
+		{myOptionIds}
+		{status}
+		{hasVoted}
+		{justVoted}
+		onStartVote={() => (editingVote = true)}
+		onChangeVote={() => {
+			selected = [...myOptionIds];
+			editingVote = true;
+		}}
+	/>
 {/if}
 
 <style>
@@ -637,189 +406,16 @@
 		font-weight: 600;
 	}
 
-	.confirm-card {
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-		margin-bottom: 12px;
-		animation: rise-in 220ms var(--ease-out-quart);
-	}
-
-	.confirm-card p {
-		margin: 0;
-	}
-
-	.confirm-row {
-		display: flex;
-		gap: 8px;
-	}
-
-	.voted-note {
-		margin: 0 0 12px;
-		padding: 10px 14px;
-		border-radius: 10px;
-		background: var(--accent-soft);
-		color: var(--accent-deeper);
-		font-weight: 600;
-		animation: rise-in 220ms var(--ease-out-quart);
-	}
-
-	.results-wrap,
-	.share-wrap,
-	.notice,
-	.vote-form {
-		animation: rise-in 220ms var(--ease-out-quart) both;
-	}
-
-	.creator-bar {
-		display: flex;
-		gap: 8px;
-		flex-wrap: wrap;
-		margin-bottom: 12px;
-	}
-
-	.radius-bump,
-	.manage-options {
-		margin-bottom: 12px;
-	}
-
-	.option-list {
-		list-style: none;
-		margin: 0;
-		padding: 8px 0 0;
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-
-	.option-list li {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 8px;
-	}
-
-	.option-label {
-		overflow-wrap: anywhere;
-	}
-
-	.remove-option {
-		flex: 0 0 auto;
-		width: 40px;
-		height: 40px;
-		border: none;
-		border-radius: 10px;
-		background: transparent;
-		color: var(--text-muted);
-		cursor: pointer;
-		font-size: 1rem;
-	}
-
-	.radius-options {
-		display: flex;
-		gap: 8px;
-		flex-wrap: wrap;
-		padding-top: 8px;
-	}
-
 	.share-wrap {
 		margin-bottom: 16px;
-	}
-
-	.choices {
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-
-	.choice {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		width: 100%;
-		text-align: left;
-		padding: 15px 16px;
-		border-radius: 12px;
-		border: 1.5px solid var(--border);
-		background: var(--surface);
-		font-size: 1.05rem;
-		font-weight: 600;
-		cursor: pointer;
-		overflow-wrap: anywhere;
-		transition:
-			background 150ms var(--ease-out-quart),
-			border-color 150ms var(--ease-out-quart);
-	}
-
-	.choice.selected {
-		border-color: var(--accent);
-		background: var(--accent-soft);
-	}
-
-	.check {
-		color: var(--accent);
-		flex: 0 0 auto;
-	}
-
-	/* The write-in row mirrors a .choice so it reads as one more way to raise
-	   your hand, not a separate form. */
-	.writein {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		margin-top: 10px;
-		padding: 0 16px;
-		border-radius: 12px;
-		border: 1.5px solid var(--border);
-		background: var(--surface);
-		transition:
-			background 150ms var(--ease-out-quart),
-			border-color 150ms var(--ease-out-quart);
-	}
-
-	.writein.selected {
-		border-color: var(--accent);
-		background: var(--accent-soft);
-	}
-
-	.writein-input {
-		flex: 1;
-		min-width: 0;
-		padding: 15px 0;
-		border: none;
-		background: transparent;
-		font-size: 1.05rem;
-		font-weight: 600;
-	}
-
-	.writein-input:focus {
-		outline: none;
-	}
-
-	.writein:focus-within {
-		border-color: var(--accent);
-	}
-
-	.writein-note {
-		margin: 10px 0 0;
-	}
-
-	.name-input {
-		margin-top: 14px;
-	}
-
-	.vote-btn {
-		margin-top: 16px;
-	}
-
-	.geo-note {
-		margin: 0 0 12px;
+		animation: rise-in 220ms var(--ease-out-quart) both;
 	}
 
 	.notice {
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
+		animation: rise-in 220ms var(--ease-out-quart) both;
 	}
 
 	.notice h2 {
@@ -829,26 +425,5 @@
 
 	.notice p {
 		margin: 0;
-	}
-
-	.change-btn {
-		margin-top: 16px;
-	}
-
-	.voters {
-		margin-top: 20px;
-		padding-top: 14px;
-		border-top: 1px solid var(--border);
-	}
-
-	.voters h2 {
-		font-size: 0.95rem;
-		margin: 0 0 6px;
-		color: var(--text-muted);
-	}
-
-	.voters p {
-		margin: 0;
-		overflow-wrap: anywhere;
 	}
 </style>

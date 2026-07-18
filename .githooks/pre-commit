@@ -1,0 +1,20 @@
+#!/bin/sh
+# Show of Hands pre-commit hook.
+#
+# Both checks are scoped to the change set, so this stays fast (well under a
+# second in practice — see AGENTS.md). It is wired up automatically by the
+# package.json `prepare` script (`git config core.hooksPath .githooks`).
+# Bypass in an emergency with `git commit --no-verify`.
+set -e
+
+bin="$(git rev-parse --show-toplevel)/node_modules/.bin"
+
+# 1) Lint + format check on staged files only (milliseconds).
+echo "• biome (staged files)…"
+"$bin/biome" check --staged --no-errors-on-unmatched
+
+# 2) Regression gate: fails only on complexity / duplication / dead-code that
+#    THIS change introduces — inherited findings are excluded. Compares the
+#    working tree against the last commit.
+echo "• fallow audit (regression gate)…"
+"$bin/fallow" audit --base HEAD

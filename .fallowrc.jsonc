@@ -1,0 +1,36 @@
+{
+	// Fallow — codebase intelligence (dead code, duplication, complexity).
+	// Docs: https://docs.fallow.tools  ·  run: npm run analyze
+	"$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+	"rules": {
+		// SvelteKit + adapter-node bundle `svelte` and `@sveltejs/kit` at build
+		// time, so they correctly live in devDependencies and are never installed
+		// in production. This rule flags every SvelteKit app — a false positive here.
+		"dev-dependencies-in-production": "off"
+	},
+	"health": {
+		// CRAP = complexity² weighted by *lack of coverage*. Fallow can't see our
+		// vitest/Playwright runs, so it assumes 0% coverage and inflates every
+		// branchy function (any cyclomatic >=5 trips the default 30). We gate on
+		// cyclomatic (20) and cognitive (15) instead — coverage-independent
+		// signals — so maxCrap is raised to ~maxCyclomatic^2 to stop it firing
+		// before the cyclomatic gate does. Feed real coverage to re-enable it.
+		"maxCrap": 420,
+		// Complexity gating targets shipped code. Test/spec files are allowed to
+		// be large (one big describe/spec block per file).
+		"ignore": ["**/*.test.ts", "e2e/**"],
+		// A Svelte <template> counts every {#if}/{#each}/{:else} branch as
+		// cognitive load, so the default 15 (tuned for imperative functions) is
+		// unrealistic for markup. 30 still forced the 107-cognitive vote page to
+		// be split into components and flags any page template that balloons past
+		// a well-factored size, while leaving 15 intact for real logic.
+		"thresholdOverrides": [
+			{
+				"files": ["**/*.svelte"],
+				"functions": ["<template>"],
+				"maxCognitive": 30,
+				"reason": "Declarative template markup; imperative logic stays at 15."
+			}
+		]
+	}
+}

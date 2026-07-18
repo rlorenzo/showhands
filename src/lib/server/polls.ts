@@ -66,34 +66,40 @@ export function createPoll(
 		'INSERT INTO options (poll_id, label, position) VALUES (?, ?, ?)'
 	);
 
+	// Insert the poll (and its options) under a fresh id. Returns false on the
+	// rare primary-key collision so the caller can retry with a new id.
+	const insertPollOnce = (id: string): boolean => {
+		try {
+			insertPoll.run(
+				id,
+				input.question,
+				input.isAnonymous ? 1 : 0,
+				input.allowMulti ? 1 : 0,
+				input.allowWritein ? 1 : 0,
+				input.resultsVisibility,
+				input.geofence ? roundCoord(input.geofence.lat) : null,
+				input.geofence ? roundCoord(input.geofence.lng) : null,
+				input.geofence ? input.geofence.radiusM : null,
+				tokenHash,
+				now,
+				expiresAt,
+				deleteAfter
+			);
+		} catch (err) {
+			if ((err as { code?: string }).code === 'SQLITE_CONSTRAINT_PRIMARYKEY') return false;
+			throw err;
+		}
+		input.options.forEach((label, i) => {
+			insertOption.run(id, label, i);
+		});
+		return true;
+	};
+
 	// Retry on the rare ID collision (~920k combos).
 	const txn = db.transaction(() => {
 		for (let attempt = 0; attempt < 10; attempt++) {
 			const id = generatePollId();
-			try {
-				insertPoll.run(
-					id,
-					input.question,
-					input.isAnonymous ? 1 : 0,
-					input.allowMulti ? 1 : 0,
-					input.allowWritein ? 1 : 0,
-					input.resultsVisibility,
-					input.geofence ? roundCoord(input.geofence.lat) : null,
-					input.geofence ? roundCoord(input.geofence.lng) : null,
-					input.geofence ? input.geofence.radiusM : null,
-					tokenHash,
-					now,
-					expiresAt,
-					deleteAfter
-				);
-			} catch (err) {
-				if ((err as { code?: string }).code === 'SQLITE_CONSTRAINT_PRIMARYKEY') continue;
-				throw err;
-			}
-			input.options.forEach((label, i) => {
-				insertOption.run(id, label, i);
-			});
-			return id;
+			if (insertPollOnce(id)) return id;
 		}
 		throw new Error('could not allocate poll id');
 	});
