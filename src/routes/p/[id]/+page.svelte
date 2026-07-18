@@ -46,7 +46,10 @@
 	// the live source of truth, the load-time poll view just the seed.
 	const liveOptions = $derived(results.options ?? poll.options);
 	const writeInFull = $derived(liveOptions.length >= WRITEIN_TOTAL_MAX);
-	const canVote = $derived(selected.length > 0 || writeIn.trim().length > 0);
+	// Once the poll is full the write-in field is hidden, so a pending write-in
+	// must not keep the Vote button live or be submitted (it would 409). The text
+	// is kept, not cleared, so it returns usable if an option is later removed.
+	const canVote = $derived(selected.length > 0 || (!writeInFull && writeIn.trim().length > 0));
 
 	// The creator can remove options mid-poll; drop any local reference to an
 	// option that no longer exists. If this device's entire vote was on it,
@@ -187,7 +190,7 @@
 		submitting = true;
 
 		const body: Record<string, unknown> = { optionIds: selected };
-		if (poll.allowWritein && writeIn.trim()) body.writeIn = writeIn.trim();
+		if (poll.allowWritein && !writeInFull && writeIn.trim()) body.writeIn = writeIn.trim();
 
 		if (!poll.isAnonymous) {
 			const name = displayName.trim();
@@ -232,7 +235,13 @@
 				if (res.status === 403 && typeof data.distanceM === 'number') {
 					rejection = { distanceM: data.distanceM, radiusM: data.radiusM };
 				} else if (res.status === 409) {
-					voteError = 'This poll just closed.';
+					// 409 is overloaded: a closed poll vs a write-in hitting the option
+					// cap. Branch on the x-reason header rather than the message text.
+					if (res.headers.get('x-reason') === 'writein-full') {
+						voteError = data.error ?? `This poll hit its ${WRITEIN_TOTAL_MAX}-option limit.`;
+					} else {
+						voteError = 'This poll just closed.';
+					}
 					const snap = await fetch(`/api/polls/${poll.id}/results`);
 					if (snap.ok) results = await snap.json();
 				} else {
