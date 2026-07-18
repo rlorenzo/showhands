@@ -215,6 +215,8 @@ describe('polls', () => {
 		const first = addWriteInOption(db, id, 'Sushi') as { id: number };
 		expect(addWriteInOption(db, id, 'sushi')).toEqual({ id: first.id });
 		expect(addWriteInOption(db, id, 'SUSHI')).toEqual({ id: first.id });
+		// full-width (NFKC compatibility) form folds to the same key
+		expect(addWriteInOption(db, id, 'Ｓｕｓｈｉ')).toEqual({ id: first.id });
 		// pre-seeded options merge too
 		const [tacos] = getOptions(db, id);
 		expect(addWriteInOption(db, id, 'TACOS')).toEqual({ id: tacos.id });

@@ -34,7 +34,10 @@ export const POST: RequestHandler = async ({ params, request, locals, getClientA
 		return json({ error: 'Poll not found.' }, { status: 404 });
 	}
 	if (effectiveStatus(poll) === 'closed') {
-		return json({ error: 'This poll is closed.' }, { status: 409 });
+		return json(
+			{ error: 'This poll is closed.' },
+			{ status: 409, headers: { 'x-reason': 'poll-closed' } }
+		);
 	}
 
 	let body: Record<string, unknown>;
@@ -103,7 +106,7 @@ export const POST: RequestHandler = async ({ params, request, locals, getClientA
 		if ('full' in resolved) {
 			return json(
 				{ error: `This poll already has the maximum of ${WRITEIN_TOTAL_MAX} options.` },
-				{ status: 409 }
+				{ status: 409, headers: { 'x-reason': 'writein-full' } }
 			);
 		}
 		optionIds = [...new Set([...optionIds, resolved.id])];
