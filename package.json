@@ -14,7 +14,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"start": "node build/index.js",
-		"prepare": "svelte-kit sync || echo ''",
+		"prepare": "svelte-kit sync || echo ''; git config core.hooksPath .githooks || true",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "npm run test:unit -- --run",
@@ -22,7 +22,8 @@
 		"test:e2e": "playwright test",
 		"lint": "biome check .",
 		"format": "biome check --write .",
-		"analyze": "fallow"
+		"analyze": "fallow",
+		"analyze:gate": "fallow audit"
 	},
 	"dependencies": {
 		"better-sqlite3": "^12.4.1",
@@ -37,6 +38,7 @@
 		"@types/better-sqlite3": "^7.6.13",
 		"@types/node": "^22",
 		"@types/qrcode": "^1.5.5",
+		"fallow": "^3.6.0",
 		"svelte": "^5.56.1",
 		"svelte-check": "^4.6.0",
 		"typescript": "^6.0.3",

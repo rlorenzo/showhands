@@ -35,3 +35,6 @@ vite.config.ts.timestamp-*
 
 # Design tooling scratch
 /.impeccable
+
+# Fallow analysis cache
+/.fallow

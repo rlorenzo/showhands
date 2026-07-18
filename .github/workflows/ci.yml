@@ -21,6 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # Full history so the fallow regression gate can diff against the base.
+          fetch-depth: 0
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -42,8 +45,24 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Static analysis report (fallow, non-blocking)
-        run: npx --yes fallow
+      - name: Fallow regression gate (fails on newly-introduced findings)
+        # Pass context through env, never inlined into the script, so a branch
+        # name can't inject shell (GitHub Actions security hardening).
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch --no-tags origin "$BASE_REF"
+            base=FETCH_HEAD
+          else
+            base=HEAD~1
+          fi
+          echo "Auditing changed files against $base"
+          npx fallow audit --base "$base"
+
+      - name: Fallow full report (complexity · duplication · dead code, non-blocking)
+        run: npx fallow
         continue-on-error: true
 
   e2e:
