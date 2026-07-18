@@ -3,6 +3,7 @@ import { getDb } from '$lib/server/db';
 import { checkGeofence, isValidLatLng } from '$lib/server/geo';
 import { normalizePollId } from '$lib/server/ids';
 import {
+	addWriteInOption,
 	castVote,
 	effectiveStatus,
 	getOptions,
@@ -12,7 +13,7 @@ import {
 } from '$lib/server/polls';
 import { allow, LIMITS } from '$lib/server/ratelimit';
 import { deviceHashForPoll } from '$lib/server/tokens';
-import { NAME_MAX, sanitizeText } from '$lib/validation';
+import { NAME_MAX, OPTION_MAX, sanitizeText, WRITEIN_TOTAL_MAX } from '$lib/validation';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ params, request, locals, getClientAddress }) => {
@@ -77,12 +78,37 @@ export const POST: RequestHandler = async ({ params, request, locals, getClientA
 	const options = getOptions(db, pollId);
 	const validIds = new Set(options.map((o) => o.id));
 	const rawIds = Array.isArray(body.optionIds) ? body.optionIds : [];
-	const optionIds = [...new Set(rawIds.filter((v): v is number => typeof v === 'number'))];
-	if (optionIds.length === 0 || optionIds.some((id) => !validIds.has(id))) {
+	let optionIds = [...new Set(rawIds.filter((v): v is number => typeof v === 'number'))];
+	if (optionIds.some((id) => !validIds.has(id))) {
 		return json({ error: 'Pick at least one valid option.' }, { status: 400 });
 	}
-	if (poll.allow_multi !== 1 && optionIds.length > 1) {
+
+	// Voter write-in: sanitized like any option, merged case-insensitively into
+	// an existing option when the label matches, capped in total per poll.
+	let writeIn = '';
+	if (typeof body.writeIn === 'string' && body.writeIn.trim().length > 0) {
+		if (poll.allow_writein !== 1) {
+			return json({ error: 'This poll does not accept write-in options.' }, { status: 400 });
+		}
+		writeIn = sanitizeText(body.writeIn, OPTION_MAX);
+	}
+	// Enforce single-choice before inserting, so a rejected vote never leaves
+	// behind a zero-vote write-in option.
+	if (poll.allow_multi !== 1 && optionIds.length + (writeIn ? 1 : 0) > 1) {
 		return json({ error: 'This poll allows a single choice.' }, { status: 400 });
+	}
+	if (writeIn) {
+		const resolved = addWriteInOption(db, pollId, writeIn);
+		if ('full' in resolved) {
+			return json(
+				{ error: `This poll already has the maximum of ${WRITEIN_TOTAL_MAX} options.` },
+				{ status: 409 }
+			);
+		}
+		optionIds = [...new Set([...optionIds, resolved.id])];
+	}
+	if (optionIds.length === 0) {
+		return json({ error: 'Pick at least one valid option.' }, { status: 400 });
 	}
 
 	let displayName: string | null = null;
@@ -98,5 +124,7 @@ export const POST: RequestHandler = async ({ params, request, locals, getClientA
 	castVote(db, { pollId, deviceHash, optionIds, displayName });
 	publishResults(db, poll);
 
-	return json({ ok: true, results: resultsPayload(db, poll) });
+	// optionIds echoes the recorded vote so the client can mark a freshly
+	// created write-in option as "yours" without guessing its id.
+	return json({ ok: true, optionIds, results: resultsPayload(db, poll) });
 };

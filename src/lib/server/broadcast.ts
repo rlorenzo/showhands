@@ -3,6 +3,7 @@
 export interface ResultsPayload {
 	status: 'open' | 'closed';
 	total: number;
+	options: { id: number; label: string }[]; // grows live on write-in polls
 	counts: Record<string, number> | null; // null while results are hidden
 	voters: string[] | null; // display names, named polls only
 	closesAt: number; // unix seconds

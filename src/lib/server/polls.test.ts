@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 process.env.SHOWHANDS_SECRET = 'test-secret-for-unit-tests-only';
 
 import type { Database } from 'better-sqlite3';
-import { GRACE_SECONDS } from '$lib/validation';
+import { GRACE_SECONDS, WRITEIN_TOTAL_MAX } from '$lib/validation';
 import { createDatabase } from './db';
 import {
+	addWriteInOption,
 	type CreatePollInput,
 	castVote,
 	closePoll,
@@ -19,6 +20,7 @@ import {
 	getVoterNames,
 	resultsPayload,
 	sweep,
+	toPollView,
 	updateRadius,
 	verifyCreatorToken
 } from './polls';
@@ -31,6 +33,7 @@ function makeInput(overrides: Partial<CreatePollInput> = {}): CreatePollInput {
 		options: ['Tacos', 'Ramen'],
 		isAnonymous: true,
 		allowMulti: false,
+		allowWritein: false,
 		resultsVisibility: 'live',
 		geofence: null,
 		expiresInSeconds: 3600,
@@ -181,6 +184,51 @@ describe('polls', () => {
 		);
 		updateRadius(db, fenced, 1000);
 		expect(getPoll(db, fenced, NOW)!.geofence_radius_m).toBe(1000);
+	});
+
+	it('persists the write-in flag and exposes it on the poll view', () => {
+		const { id } = createPoll(db, makeInput({ allowWritein: true }), NOW);
+		const poll = getPoll(db, id, NOW)!;
+		expect(poll.allow_writein).toBe(1);
+		expect(toPollView(poll, getOptions(db, id), NOW).allowWritein).toBe(true);
+	});
+
+	it('appends a write-in option after the existing ones', () => {
+		const { id } = createPoll(db, makeInput({ allowWritein: true }), NOW);
+		const added = addWriteInOption(db, id, 'Sushi');
+		expect('id' in added).toBe(true);
+		expect(getOptions(db, id).map((o) => o.label)).toEqual(['Tacos', 'Ramen', 'Sushi']);
+	});
+
+	it('merges write-ins that differ only by case or Unicode form', () => {
+		const { id } = createPoll(db, makeInput({ allowWritein: true }), NOW);
+		const first = addWriteInOption(db, id, 'Sushi') as { id: number };
+		expect(addWriteInOption(db, id, 'sushi')).toEqual({ id: first.id });
+		expect(addWriteInOption(db, id, 'SUSHI')).toEqual({ id: first.id });
+		// pre-seeded options merge too
+		const [tacos] = getOptions(db, id);
+		expect(addWriteInOption(db, id, 'TACOS')).toEqual({ id: tacos.id });
+		expect(getOptions(db, id)).toHaveLength(3);
+	});
+
+	it('refuses write-ins past the per-poll option ceiling', () => {
+		const { id } = createPoll(db, makeInput({ allowWritein: true }), NOW);
+		for (let i = 0; i < WRITEIN_TOTAL_MAX - 2; i++) {
+			expect(addWriteInOption(db, id, `Extra ${i}`)).toHaveProperty('id');
+		}
+		expect(getOptions(db, id)).toHaveLength(WRITEIN_TOTAL_MAX);
+		expect(addWriteInOption(db, id, 'One too many')).toEqual({ full: true });
+		// duplicates of existing labels still resolve when full
+		expect(addWriteInOption(db, id, 'extra 0')).toHaveProperty('id');
+	});
+
+	it('includes the live option list in results payloads', () => {
+		const { id } = createPoll(db, makeInput({ allowWritein: true }), NOW);
+		const added = addWriteInOption(db, id, 'Sushi') as { id: number };
+		castVote(db, { pollId: id, deviceHash: 'dev1', optionIds: [added.id], displayName: null }, NOW);
+		const payload = resultsPayload(db, getPoll(db, id, NOW)!, NOW);
+		expect(payload.options.map((o) => o.label)).toEqual(['Tacos', 'Ramen', 'Sushi']);
+		expect(payload.counts?.[String(added.id)]).toBe(1);
 	});
 
 	it('closePoll clamps expires_at so the grace countdown starts at close time', () => {

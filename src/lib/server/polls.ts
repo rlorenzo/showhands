@@ -1,6 +1,6 @@
 import type { Database } from 'better-sqlite3';
 import type { PollView } from '$lib/types';
-import { GRACE_SECONDS } from '$lib/validation';
+import { GRACE_SECONDS, WRITEIN_TOTAL_MAX } from '$lib/validation';
 import { closeChannel, publish, type ResultsPayload } from './broadcast';
 import { roundCoord } from './geo';
 import { generatePollId } from './ids';
@@ -11,6 +11,7 @@ export interface PollRow {
 	question: string;
 	is_anonymous: number;
 	allow_multi: number;
+	allow_writein: number;
 	results_visibility: 'live' | 'after_close';
 	geofence_lat: number | null;
 	geofence_lng: number | null;
@@ -38,6 +39,7 @@ export interface CreatePollInput {
 	options: string[];
 	isAnonymous: boolean;
 	allowMulti: boolean;
+	allowWritein: boolean;
 	resultsVisibility: 'live' | 'after_close';
 	geofence: { lat: number; lng: number; radiusM: number } | null;
 	expiresInSeconds: number;
@@ -54,10 +56,10 @@ export function createPoll(
 	const deleteAfter = expiresAt + GRACE_SECONDS;
 
 	const insertPoll = db.prepare(
-		`INSERT INTO polls (id, question, is_anonymous, allow_multi, results_visibility,
+		`INSERT INTO polls (id, question, is_anonymous, allow_multi, allow_writein, results_visibility,
 			geofence_lat, geofence_lng, geofence_radius_m, creator_token_hash,
 			status, created_at, expires_at, delete_after)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?)`
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?)`
 	);
 	const insertOption = db.prepare(
 		'INSERT INTO options (poll_id, label, position) VALUES (?, ?, ?)'
@@ -73,6 +75,7 @@ export function createPoll(
 					input.question,
 					input.isAnonymous ? 1 : 0,
 					input.allowMulti ? 1 : 0,
+					input.allowWritein ? 1 : 0,
 					input.resultsVisibility,
 					input.geofence ? roundCoord(input.geofence.lat) : null,
 					input.geofence ? roundCoord(input.geofence.lng) : null,
@@ -123,6 +126,7 @@ export function toPollView(poll: PollRow, options: OptionRow[], now = nowSeconds
 		question: poll.question,
 		isAnonymous: poll.is_anonymous === 1,
 		allowMulti: poll.allow_multi === 1,
+		allowWritein: poll.allow_writein === 1,
 		resultsVisibility: poll.results_visibility,
 		geofenced: poll.geofence_radius_m !== null,
 		geofenceRadiusM: poll.geofence_radius_m,
@@ -131,6 +135,37 @@ export function toPollView(poll: PollRow, options: OptionRow[], now = nowSeconds
 		expiresAt: poll.expires_at,
 		options: options.map((o) => ({ id: o.id, label: o.label }))
 	};
+}
+
+/** Dedupe key for write-in labels: fold case and Unicode compatibility forms
+ * so "Pizza", "pizza" and full-width variants merge instead of splitting votes. */
+function writeInKey(label: string): string {
+	return label.normalize('NFKC').toLowerCase();
+}
+
+/**
+ * Resolve a voter write-in to an option id. Reuses an existing option when the
+ * label matches (case/Unicode-insensitively); otherwise appends a new one,
+ * unless the poll already carries WRITEIN_TOTAL_MAX options.
+ */
+export function addWriteInOption(
+	db: Database,
+	pollId: string,
+	label: string
+): { id: number } | { full: true } {
+	const txn = db.transaction((): { id: number } | { full: true } => {
+		const options = getOptions(db, pollId);
+		const key = writeInKey(label);
+		const existing = options.find((o) => writeInKey(o.label) === key);
+		if (existing) return { id: existing.id };
+		if (options.length >= WRITEIN_TOTAL_MAX) return { full: true };
+		const position = options.length === 0 ? 0 : options[options.length - 1].position + 1;
+		const result = db
+			.prepare('INSERT INTO options (poll_id, label, position) VALUES (?, ?, ?)')
+			.run(pollId, label, position);
+		return { id: Number(result.lastInsertRowid) };
+	});
+	return txn();
 }
 
 export interface CastVoteInput {
@@ -208,6 +243,7 @@ export function resultsPayload(db: Database, poll: PollRow, now = nowSeconds()):
 	return {
 		status,
 		total,
+		options: getOptions(db, poll.id).map((o) => ({ id: o.id, label: o.label })),
 		counts: hidden ? null : counts,
 		voters: hidden || poll.is_anonymous === 1 ? null : getVoterNames(db, poll.id),
 		closesAt: poll.expires_at,

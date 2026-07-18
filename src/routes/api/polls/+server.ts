@@ -61,6 +61,7 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress,
 		options,
 		isAnonymous: body.isAnonymous !== false,
 		allowMulti: body.allowMulti === true,
+		allowWritein: body.allowWritein === true,
 		resultsVisibility,
 		geofence,
 		expiresInSeconds: EXPIRY_CHOICES[expiry]

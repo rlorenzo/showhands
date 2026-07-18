@@ -7,7 +7,7 @@
 	import Seo from '$lib/components/Seo.svelte';
 	import SharePanel from '$lib/components/SharePanel.svelte';
 	import type { ResultsView } from '$lib/types';
-	import { NAME_MAX, RADII_M } from '$lib/validation';
+	import { NAME_MAX, OPTION_MAX, RADII_M, WRITEIN_TOTAL_MAX } from '$lib/validation';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -23,6 +23,7 @@
 	let editingVote = $state(false);
 
 	let selected = $state<number[]>(untrack(() => data.myVote?.optionIds ?? []));
+	let writeIn = $state('');
 	let displayName = $state(untrack(() => data.myVote?.displayName ?? ''));
 	let voteError = $state('');
 	let rejection = $state<{ distanceM: number; radiusM: number } | null>(null);
@@ -38,6 +39,11 @@
 	const status = $derived(results.status);
 	const showVoteForm = $derived(status === 'open' && (!hasVoted || editingVote));
 	const resultsHidden = $derived(results.counts === null);
+	// Write-in polls grow their option list while open; the results payload is
+	// the live source of truth, the load-time poll view just the seed.
+	const liveOptions = $derived(results.options ?? poll.options);
+	const writeInFull = $derived(liveOptions.length >= WRITEIN_TOTAL_MAX);
+	const canVote = $derived(selected.length > 0 || writeIn.trim().length > 0);
 
 	// --- countdown ---------------------------------------------------------
 	let clockOffset = untrack(() => data.serverNow) - Math.floor(Date.now() / 1000);
@@ -135,7 +141,13 @@
 			selected = selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id];
 		} else {
 			selected = [id];
+			writeIn = '';
 		}
+	}
+
+	// On single-choice polls a write-in IS the choice, so typing deselects.
+	function onWriteInInput() {
+		if (!poll.allowMulti && writeIn.trim().length > 0) selected = [];
 	}
 
 	function getPosition(): Promise<GeolocationPosition> {
@@ -149,12 +161,13 @@
 	}
 
 	async function submitVote() {
-		if (selected.length === 0 || submitting) return;
+		if (!canVote || submitting) return;
 		voteError = '';
 		rejection = null;
 		submitting = true;
 
 		const body: Record<string, unknown> = { optionIds: selected };
+		if (poll.allowWritein && writeIn.trim()) body.writeIn = writeIn.trim();
 
 		if (!poll.isAnonymous) {
 			const name = displayName.trim();
@@ -209,7 +222,10 @@
 				return;
 			}
 			results = data.results;
-			myOptionIds = [...selected];
+			// The server echoes the recorded ids — a write-in's id is only known there.
+			myOptionIds = Array.isArray(data.optionIds) ? data.optionIds : [...selected];
+			selected = [...myOptionIds];
+			writeIn = '';
 			hasVoted = true;
 			editingVote = false;
 			justVoted = true;
@@ -400,7 +416,7 @@
 		{/if}
 
 		<div class="choices" role="group" aria-label="Poll options">
-			{#each poll.options as option (option.id)}
+			{#each liveOptions as option (option.id)}
 				<button
 					type="button"
 					class="choice"
@@ -413,6 +429,24 @@
 				</button>
 			{/each}
 		</div>
+		{#if poll.allowWritein}
+			{#if writeInFull}
+				<p class="muted writein-note">This poll hit its {WRITEIN_TOTAL_MAX}-option limit.</p>
+			{:else}
+				<div class="writein" class:selected={writeIn.trim().length > 0}>
+					<span class="check" aria-hidden="true">{writeIn.trim() ? '●' : '○'}</span>
+					<input
+						type="text"
+						class="writein-input"
+						placeholder={poll.allowMulti ? 'Add your own option' : 'Or write your own…'}
+						bind:value={writeIn}
+						oninput={onWriteInInput}
+						maxlength={OPTION_MAX}
+						aria-label="Write in your own option"
+					/>
+				</div>
+			{/if}
+		{/if}
 		{#if poll.allowMulti}
 			<p class="muted">Pick as many as you like.</p>
 		{/if}
@@ -437,7 +471,7 @@
 			type="button"
 			class="btn vote-btn"
 			onclick={submitVote}
-			disabled={selected.length === 0 || submitting}
+			disabled={!canVote || submitting}
 		>
 			{#if locating}Checking location…{:else if submitting}Voting…{:else if editingVote}Update vote{:else}Vote{/if}
 		</button>
@@ -469,7 +503,7 @@
 		{/if}
 
 		<ResultBars
-			options={poll.options}
+			options={liveOptions}
 			counts={results.counts ?? {}}
 			total={results.total}
 			{myOptionIds}
@@ -597,6 +631,49 @@
 	.check {
 		color: var(--accent);
 		flex: 0 0 auto;
+	}
+
+	/* The write-in row mirrors a .choice so it reads as one more way to raise
+	   your hand, not a separate form. */
+	.writein {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		margin-top: 10px;
+		padding: 0 16px;
+		border-radius: 12px;
+		border: 1.5px solid var(--border);
+		background: var(--surface);
+		transition:
+			background 150ms var(--ease-out-quart),
+			border-color 150ms var(--ease-out-quart);
+	}
+
+	.writein.selected {
+		border-color: var(--accent);
+		background: var(--accent-soft);
+	}
+
+	.writein-input {
+		flex: 1;
+		min-width: 0;
+		padding: 15px 0;
+		border: none;
+		background: transparent;
+		font-size: 1.05rem;
+		font-weight: 600;
+	}
+
+	.writein-input:focus {
+		outline: none;
+	}
+
+	.writein:focus-within {
+		border-color: var(--accent);
+	}
+
+	.writein-note {
+		margin: 10px 0 0;
 	}
 
 	.name-input {

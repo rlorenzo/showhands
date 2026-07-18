@@ -7,6 +7,7 @@ async function createPoll(
 		options: string[];
 		named?: boolean;
 		multi?: boolean;
+		writein?: boolean;
 		afterClose?: boolean;
 	}
 ): Promise<string> {
@@ -16,10 +17,11 @@ async function createPoll(
 		if (i >= 2) await page.getByRole('button', { name: '+ Add option' }).click();
 		await page.getByRole('textbox', { name: `Option ${i + 1}`, exact: true }).fill(opts.options[i]);
 	}
-	if (opts.named || opts.multi || opts.afterClose) {
+	if (opts.named || opts.multi || opts.writein || opts.afterClose) {
 		await page.getByRole('button', { name: /Settings/ }).click();
 		if (opts.named) await page.getByLabel(/Anonymous votes/).uncheck();
 		if (opts.multi) await page.getByLabel(/Multiple selections/).check();
+		if (opts.writein) await page.getByLabel(/Voters can add options/).check();
 		if (opts.afterClose) await page.getByLabel(/Results/).selectOption('after_close');
 	}
 	await page.getByRole('button', { name: 'Create poll' }).click();
@@ -98,6 +100,42 @@ test.describe('Flow B: vote', () => {
 		await expect(watcher.getByText(/^2 votes$/)).toBeVisible({ timeout: 2000 });
 
 		await watcher.context().close();
+		await voter2.context().close();
+	});
+
+	test('write-in poll: voter adds an option, everyone sees it live', async ({ page, browser }) => {
+		const id = await createPoll(page, {
+			question: 'Lunch?',
+			options: ['Tacos', 'Ramen'],
+			writein: true
+		});
+
+		// creator watches results after voting
+		await page.getByRole('button', { name: 'Tacos' }).click();
+		await page.getByRole('button', { name: 'Vote', exact: true }).click();
+		await expect(page.getByText(/^1 vote$/)).toBeVisible();
+
+		// voter writes in a new option instead of picking one
+		const voter = await newVoter(browser, id);
+		await voter.getByLabel('Write in your own option').fill('Sushi');
+		await voter.getByRole('button', { name: 'Vote', exact: true }).click();
+		await expect(voter.getByText(/^2 votes$/)).toBeVisible();
+		await expect(voter.getByText('Sushi')).toBeVisible();
+		await expect(voter.getByText('✓ you')).toBeVisible();
+
+		// the creator's open page picks up the new option over SSE
+		await expect(page.getByText('Sushi')).toBeVisible({ timeout: 2000 });
+
+		// a later voter sees the write-in as a normal choice; same label merges
+		const voter2 = await newVoter(browser, id);
+		await expect(voter2.getByRole('button', { name: 'Sushi' })).toBeVisible();
+		await voter2.getByLabel('Write in your own option').fill('sushi');
+		await voter2.getByRole('button', { name: 'Vote', exact: true }).click();
+		await expect(voter2.getByText(/^3 votes$/)).toBeVisible();
+		// merged: still one Sushi row, now with two votes
+		await expect(voter2.getByText('2 · 67%')).toBeVisible();
+
+		await voter.context().close();
 		await voter2.context().close();
 	});
 

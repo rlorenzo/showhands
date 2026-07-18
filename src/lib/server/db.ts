@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS polls (
   question TEXT NOT NULL,
   is_anonymous INTEGER NOT NULL DEFAULT 1,
   allow_multi INTEGER NOT NULL DEFAULT 0,
+  allow_writein INTEGER NOT NULL DEFAULT 0,
   results_visibility TEXT NOT NULL DEFAULT 'live',
   geofence_lat REAL,
   geofence_lng REAL,
@@ -51,7 +52,17 @@ export function createDatabase(filename: string): Database.Database {
 	db.pragma('foreign_keys = ON');
 	db.pragma('busy_timeout = 5000');
 	db.exec(SCHEMA);
+	migrate(db);
 	return db;
+}
+
+/** Additive migrations for databases created before a column existed.
+ * CREATE TABLE IF NOT EXISTS covers fresh files only. */
+function migrate(db: Database.Database) {
+	const pollCols = (db.pragma("table_info('polls')") as { name: string }[]).map((c) => c.name);
+	if (!pollCols.includes('allow_writein')) {
+		db.exec('ALTER TABLE polls ADD COLUMN allow_writein INTEGER NOT NULL DEFAULT 0');
+	}
 }
 
 let instance: Database.Database | null = null;

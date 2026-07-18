@@ -6,6 +6,8 @@ export const OPTION_MAX = 80;
 export const NAME_MAX = 40;
 export const OPTIONS_MIN = 2;
 export const OPTIONS_MAX = 8;
+/** Hard ceiling on options once voter write-ins are enabled. */
+export const WRITEIN_TOTAL_MAX = 20;
 
 export const RADII_M = [100, 250, 1000, 5000] as const;
 

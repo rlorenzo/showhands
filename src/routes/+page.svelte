@@ -19,6 +19,7 @@
 
 	let isAnonymous = $state(true);
 	let allowMulti = $state(false);
+	let allowWritein = $state(false);
 	let resultsVisibility = $state<'live' | 'after_close'>('live');
 	let expiry = $state<ExpiryKey>(DEFAULT_EXPIRY);
 
@@ -123,6 +124,7 @@
 					options: filledOptions,
 					isAnonymous,
 					allowMulti,
+					allowWritein,
 					resultsVisibility,
 					expiry,
 					geofence: geofenceOn && coords ? { lat: coords.lat, lng: coords.lng, radiusM } : null
@@ -222,6 +224,14 @@
 					<small>Voters can pick more than one option</small>
 				</span>
 				<input type="checkbox" bind:checked={allowMulti} />
+			</label>
+
+			<label class="row">
+				<span>
+					Voters can add options
+					<small>Write-ins show up in the poll for everyone</small>
+				</span>
+				<input type="checkbox" bind:checked={allowWritein} />
 			</label>
 
 			<label class="row">
