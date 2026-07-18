@@ -7,6 +7,7 @@ async function createPoll(
 		options: string[];
 		named?: boolean;
 		multi?: boolean;
+		writein?: boolean;
 		afterClose?: boolean;
 	}
 ): Promise<string> {
@@ -16,10 +17,11 @@ async function createPoll(
 		if (i >= 2) await page.getByRole('button', { name: '+ Add option' }).click();
 		await page.getByRole('textbox', { name: `Option ${i + 1}`, exact: true }).fill(opts.options[i]);
 	}
-	if (opts.named || opts.multi || opts.afterClose) {
+	if (opts.named || opts.multi || opts.writein || opts.afterClose) {
 		await page.getByRole('button', { name: /Settings/ }).click();
 		if (opts.named) await page.getByLabel(/Anonymous votes/).uncheck();
 		if (opts.multi) await page.getByLabel(/Multiple selections/).check();
+		if (opts.writein) await page.getByLabel(/Voters can add options/).check();
 		if (opts.afterClose) await page.getByLabel(/Results/).selectOption('after_close');
 	}
 	await page.getByRole('button', { name: 'Create poll' }).click();
@@ -99,6 +101,131 @@ test.describe('Flow B: vote', () => {
 
 		await watcher.context().close();
 		await voter2.context().close();
+	});
+
+	test('write-in poll: voter adds an option, everyone sees it live', async ({ page, browser }) => {
+		const id = await createPoll(page, {
+			question: 'Lunch?',
+			options: ['Tacos', 'Ramen'],
+			writein: true
+		});
+
+		// creator watches results after voting
+		await page.getByRole('button', { name: 'Tacos' }).click();
+		await page.getByRole('button', { name: 'Vote', exact: true }).click();
+		await expect(page.getByText(/^1 vote$/)).toBeVisible();
+
+		// voter writes in a new option instead of picking one
+		const voter = await newVoter(browser, id);
+		await voter.getByLabel('Write in your own option').fill('Sushi');
+		await voter.getByRole('button', { name: 'Vote', exact: true }).click();
+		await expect(voter.getByText(/^2 votes$/)).toBeVisible();
+		await expect(voter.getByText('Sushi')).toBeVisible();
+		await expect(voter.getByText('✓ you')).toBeVisible();
+
+		// the creator's open page picks up the new option over SSE — scoped to the
+		// result bars: the label also exists in the collapsed moderation list
+		await expect(page.locator('.results').getByText('Sushi')).toBeVisible({ timeout: 2000 });
+
+		// a later voter sees the write-in as a normal choice; same label merges
+		const voter2 = await newVoter(browser, id);
+		await expect(voter2.getByRole('button', { name: 'Sushi' })).toBeVisible();
+		await voter2.getByLabel('Write in your own option').fill('sushi');
+		await voter2.getByRole('button', { name: 'Vote', exact: true }).click();
+		await expect(voter2.getByText(/^3 votes$/)).toBeVisible();
+		// merged: still one Sushi row, now with two votes
+		await expect(voter2.getByText('2 · 67%')).toBeVisible();
+
+		await voter.context().close();
+		await voter2.context().close();
+	});
+
+	test('creator removes a single option; its voter gets the form back live', async ({
+		page,
+		browser
+	}) => {
+		const id = await createPoll(page, {
+			question: 'Snacks?',
+			options: ['Chips', 'Fruit'],
+			writein: true
+		});
+
+		const voter = await newVoter(browser, id);
+		await voter.getByLabel('Write in your own option').fill('Rude thing');
+		await voter.getByRole('button', { name: 'Vote', exact: true }).click();
+		await expect(voter.getByText(/^1 vote$/)).toBeVisible();
+
+		// creator moderates the write-in away (confirm flow)
+		await page.getByText('Remove an option').click();
+		await page.getByRole('button', { name: 'Remove option Rude thing' }).click();
+		await page.getByRole('button', { name: 'Remove option', exact: true }).click();
+		await expect(page.getByText('Rude thing')).toHaveCount(0);
+
+		// the voter's vote went with it: over SSE their page returns to the form
+		await expect(voter.getByRole('button', { name: 'Vote', exact: true })).toBeVisible({
+			timeout: 2000
+		});
+		await expect(voter.getByText('Rude thing')).toHaveCount(0);
+
+		// and they can vote again
+		await voter.getByRole('button', { name: 'Chips' }).click();
+		await voter.getByRole('button', { name: 'Vote', exact: true }).click();
+		await expect(voter.getByText(/^1 vote$/)).toBeVisible();
+
+		await voter.context().close();
+	});
+
+	test('the vote endpoint prunes an abandoned write-in when its author recasts', async ({
+		page,
+		browser
+	}) => {
+		const id = await createPoll(page, {
+			question: 'Lunch?',
+			options: ['Tacos', 'Ramen'],
+			writein: true
+		});
+		const labels = (r: { options: { label: string }[] }) => r.options.map((o) => o.label);
+
+		const voter = await newVoter(browser, id);
+		// voter writes in Sushi
+		const first = await voter.request.post(`/api/polls/${id}/vote`, {
+			data: { optionIds: [], writeIn: 'Sushi' }
+		});
+		expect(first.ok()).toBeTruthy();
+		const firstBody = await first.json();
+		expect(labels(firstBody.results)).toEqual(['Tacos', 'Ramen', 'Sushi']);
+		const tacos = firstBody.results.options.find((o: { label: string }) => o.label === 'Tacos');
+
+		// same voter recasts to a seeded option — Sushi held only their vote
+		const second = await voter.request.post(`/api/polls/${id}/vote`, {
+			data: { optionIds: [tacos.id] }
+		});
+		expect(second.ok()).toBeTruthy();
+		// the abandoned write-in is gone from the live option list everyone sees
+		expect(labels((await second.json()).results)).toEqual(['Tacos', 'Ramen']);
+
+		await voter.context().close();
+	});
+
+	test('write-ins are opt-in: no field by default, and crafted write-ins are rejected', async ({
+		page,
+		browser
+	}) => {
+		// created without opening Settings, so write-ins stay off
+		const id = await createPoll(page, { question: 'Plain poll?', options: ['A', 'B'] });
+
+		const voter = await newVoter(browser, id);
+		// a voter never sees a write-in box on a poll that didn't enable it
+		await expect(voter.getByLabel('Write in your own option')).toHaveCount(0);
+
+		// and a hand-crafted write-in request is refused by the server
+		const res = await voter.request.post(`/api/polls/${id}/vote`, {
+			data: { optionIds: [], writeIn: 'Sneaky' }
+		});
+		expect(res.status()).toBe(400);
+		expect((await res.json()).error).toMatch(/does not accept write-in/i);
+
+		await voter.context().close();
 	});
 
 	test('named poll requires a name and lists voters', async ({ page, browser }) => {

@@ -7,7 +7,7 @@
 	import Seo from '$lib/components/Seo.svelte';
 	import SharePanel from '$lib/components/SharePanel.svelte';
 	import type { ResultsView } from '$lib/types';
-	import { NAME_MAX, RADII_M } from '$lib/validation';
+	import { NAME_MAX, OPTION_MAX, OPTIONS_MIN, RADII_M, WRITEIN_TOTAL_MAX } from '$lib/validation';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -23,6 +23,7 @@
 	let editingVote = $state(false);
 
 	let selected = $state<number[]>(untrack(() => data.myVote?.optionIds ?? []));
+	let writeIn = $state('');
 	let displayName = $state(untrack(() => data.myVote?.displayName ?? ''));
 	let voteError = $state('');
 	let rejection = $state<{ distanceM: number; radiusM: number } | null>(null);
@@ -34,10 +35,35 @@
 	let closing = $state(false);
 	let justVoted = $state(false);
 	let confirmAction = $state<null | 'close' | 'delete'>(null);
+	let confirmRemove = $state<{ id: number; label: string } | null>(null);
+	let removing = $state(false);
+	let removeError = $state('');
 
 	const status = $derived(results.status);
 	const showVoteForm = $derived(status === 'open' && (!hasVoted || editingVote));
 	const resultsHidden = $derived(results.counts === null);
+	// Write-in polls grow their option list while open; the results payload is
+	// the live source of truth, the load-time poll view just the seed.
+	const liveOptions = $derived(results.options ?? poll.options);
+	const writeInFull = $derived(liveOptions.length >= WRITEIN_TOTAL_MAX);
+	const canVote = $derived(selected.length > 0 || writeIn.trim().length > 0);
+
+	// The creator can remove options mid-poll; drop any local reference to an
+	// option that no longer exists. If this device's entire vote was on it,
+	// hand the vote form back so the voter can pick again.
+	$effect(() => {
+		const valid = new Set(liveOptions.map((o) => o.id));
+		if (selected.some((id) => !valid.has(id))) {
+			selected = selected.filter((id) => valid.has(id));
+		}
+		if (myOptionIds.some((id) => !valid.has(id))) {
+			myOptionIds = myOptionIds.filter((id) => valid.has(id));
+			if (hasVoted && myOptionIds.length === 0) {
+				hasVoted = false;
+				justVoted = false;
+			}
+		}
+	});
 
 	// --- countdown ---------------------------------------------------------
 	let clockOffset = untrack(() => data.serverNow) - Math.floor(Date.now() / 1000);
@@ -135,7 +161,13 @@
 			selected = selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id];
 		} else {
 			selected = [id];
+			writeIn = '';
 		}
+	}
+
+	// On single-choice polls a write-in IS the choice, so typing deselects.
+	function onWriteInInput() {
+		if (!poll.allowMulti && writeIn.trim().length > 0) selected = [];
 	}
 
 	function getPosition(): Promise<GeolocationPosition> {
@@ -149,12 +181,13 @@
 	}
 
 	async function submitVote() {
-		if (selected.length === 0 || submitting) return;
+		if (!canVote || submitting) return;
 		voteError = '';
 		rejection = null;
 		submitting = true;
 
 		const body: Record<string, unknown> = { optionIds: selected };
+		if (poll.allowWritein && writeIn.trim()) body.writeIn = writeIn.trim();
 
 		if (!poll.isAnonymous) {
 			const name = displayName.trim();
@@ -209,7 +242,10 @@
 				return;
 			}
 			results = data.results;
-			myOptionIds = [...selected];
+			// The server echoes the recorded ids — a write-in's id is only known there.
+			myOptionIds = Array.isArray(data.optionIds) ? data.optionIds : [...selected];
+			selected = [...myOptionIds];
+			writeIn = '';
 			hasVoted = true;
 			editingVote = false;
 			justVoted = true;
@@ -236,6 +272,25 @@
 		confirmAction = null;
 		const res = await fetch(`/api/polls/${poll.id}`, { method: 'DELETE' });
 		if (res.ok) goto(resolve('/'));
+	}
+
+	async function removeOption(id: number) {
+		if (removing) return;
+		removing = true;
+		removeError = '';
+		try {
+			const res = await fetch(`/api/polls/${poll.id}/options/${id}`, { method: 'DELETE' });
+			const data = await res.json();
+			if (!res.ok) {
+				removeError = data.error ?? 'Could not remove the option. Try again.';
+			} else {
+				results = data.results;
+				confirmRemove = null;
+			}
+		} catch {
+			removeError = 'Network error. Try again.';
+		}
+		removing = false;
 	}
 
 	async function bumpRadius(r: number) {
@@ -340,6 +395,53 @@
 			</div>
 		</div>
 	{/if}
+	{#if status === 'open' && liveOptions.length > OPTIONS_MIN}
+		<details class="manage-options">
+			<summary class="muted">Remove an option</summary>
+			<ul class="option-list">
+				{#each liveOptions as option (option.id)}
+					<li>
+						<span class="option-label">{option.label}</span>
+						<button
+							type="button"
+							class="remove-option"
+							onclick={() => (confirmRemove = option)}
+							aria-label="Remove option {option.label}">✕</button
+						>
+					</li>
+				{/each}
+			</ul>
+			{#if removeError}
+				<p class="error-text" role="alert">{removeError}</p>
+			{/if}
+		</details>
+		{#if confirmRemove}
+			{@const target = confirmRemove}
+			<div class="card confirm-card">
+				<p>
+					<strong>Remove “{target.label}”?</strong> Its votes are deleted; anyone who picked it can vote
+					again.
+				</p>
+				<div class="confirm-row">
+					<button
+						type="button"
+						class="btn btn-danger btn-small"
+						onclick={() => removeOption(target.id)}
+						disabled={removing}
+					>
+						Remove option
+					</button>
+					<button
+						type="button"
+						class="btn btn-secondary btn-small"
+						onclick={() => (confirmRemove = null)}
+					>
+						Keep it
+					</button>
+				</div>
+			</div>
+		{/if}
+	{/if}
 	{#if status === 'open' && poll.geofenced}
 		<details class="radius-bump">
 			<summary class="muted">Friends getting rejected? Widen the radius</summary>
@@ -400,7 +502,7 @@
 		{/if}
 
 		<div class="choices" role="group" aria-label="Poll options">
-			{#each poll.options as option (option.id)}
+			{#each liveOptions as option (option.id)}
 				<button
 					type="button"
 					class="choice"
@@ -413,6 +515,24 @@
 				</button>
 			{/each}
 		</div>
+		{#if poll.allowWritein}
+			{#if writeInFull}
+				<p class="muted writein-note">This poll hit its {WRITEIN_TOTAL_MAX}-option limit.</p>
+			{:else}
+				<div class="writein" class:selected={writeIn.trim().length > 0}>
+					<span class="check" aria-hidden="true">{writeIn.trim() ? '●' : '○'}</span>
+					<input
+						type="text"
+						class="writein-input"
+						placeholder={poll.allowMulti ? 'Add your own option' : 'Or write your own…'}
+						bind:value={writeIn}
+						oninput={onWriteInInput}
+						maxlength={OPTION_MAX}
+						aria-label="Write in your own option"
+					/>
+				</div>
+			{/if}
+		{/if}
 		{#if poll.allowMulti}
 			<p class="muted">Pick as many as you like.</p>
 		{/if}
@@ -437,7 +557,7 @@
 			type="button"
 			class="btn vote-btn"
 			onclick={submitVote}
-			disabled={selected.length === 0 || submitting}
+			disabled={!canVote || submitting}
 		>
 			{#if locating}Checking location…{:else if submitting}Voting…{:else if editingVote}Update vote{:else}Vote{/if}
 		</button>
@@ -469,7 +589,7 @@
 		{/if}
 
 		<ResultBars
-			options={poll.options}
+			options={liveOptions}
 			counts={results.counts ?? {}}
 			total={results.total}
 			{myOptionIds}
@@ -549,8 +669,41 @@
 		margin-bottom: 12px;
 	}
 
-	.radius-bump {
+	.radius-bump,
+	.manage-options {
 		margin-bottom: 12px;
+	}
+
+	.option-list {
+		list-style: none;
+		margin: 0;
+		padding: 8px 0 0;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.option-list li {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+	}
+
+	.option-label {
+		overflow-wrap: anywhere;
+	}
+
+	.remove-option {
+		flex: 0 0 auto;
+		width: 40px;
+		height: 40px;
+		border: none;
+		border-radius: 10px;
+		background: transparent;
+		color: var(--text-muted);
+		cursor: pointer;
+		font-size: 1rem;
 	}
 
 	.radius-options {
@@ -597,6 +750,49 @@
 	.check {
 		color: var(--accent);
 		flex: 0 0 auto;
+	}
+
+	/* The write-in row mirrors a .choice so it reads as one more way to raise
+	   your hand, not a separate form. */
+	.writein {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		margin-top: 10px;
+		padding: 0 16px;
+		border-radius: 12px;
+		border: 1.5px solid var(--border);
+		background: var(--surface);
+		transition:
+			background 150ms var(--ease-out-quart),
+			border-color 150ms var(--ease-out-quart);
+	}
+
+	.writein.selected {
+		border-color: var(--accent);
+		background: var(--accent-soft);
+	}
+
+	.writein-input {
+		flex: 1;
+		min-width: 0;
+		padding: 15px 0;
+		border: none;
+		background: transparent;
+		font-size: 1.05rem;
+		font-weight: 600;
+	}
+
+	.writein-input:focus {
+		outline: none;
+	}
+
+	.writein:focus-within {
+		border-color: var(--accent);
+	}
+
+	.writein-note {
+		margin: 10px 0 0;
 	}
 
 	.name-input {
