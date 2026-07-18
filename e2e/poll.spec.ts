@@ -207,6 +207,27 @@ test.describe('Flow B: vote', () => {
 		await voter.context().close();
 	});
 
+	test('write-ins are opt-in: no field by default, and crafted write-ins are rejected', async ({
+		page,
+		browser
+	}) => {
+		// created without opening Settings, so write-ins stay off
+		const id = await createPoll(page, { question: 'Plain poll?', options: ['A', 'B'] });
+
+		const voter = await newVoter(browser, id);
+		// a voter never sees a write-in box on a poll that didn't enable it
+		await expect(voter.getByLabel('Write in your own option')).toHaveCount(0);
+
+		// and a hand-crafted write-in request is refused by the server
+		const res = await voter.request.post(`/api/polls/${id}/vote`, {
+			data: { optionIds: [], writeIn: 'Sneaky' }
+		});
+		expect(res.status()).toBe(400);
+		expect((await res.json()).error).toMatch(/does not accept write-in/i);
+
+		await voter.context().close();
+	});
+
 	test('named poll requires a name and lists voters', async ({ page, browser }) => {
 		const id = await createPoll(page, {
 			question: 'Named poll',

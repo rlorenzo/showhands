@@ -188,6 +188,14 @@ describe('polls', () => {
 		expect(getPoll(db, fenced, NOW)!.geofence_radius_m).toBe(1000);
 	});
 
+	it('leaves write-ins off by default', () => {
+		// allowWritein is an opt-in setting; a poll created without it stays off.
+		const { id } = createPoll(db, makeInput({ allowWritein: false }), NOW);
+		const poll = getPoll(db, id, NOW)!;
+		expect(poll.allow_writein).toBe(0);
+		expect(toPollView(poll, getOptions(db, id), NOW).allowWritein).toBe(false);
+	});
+
 	it('persists the write-in flag and exposes it on the poll view', () => {
 		const { id } = createPoll(db, makeInput({ allowWritein: true }), NOW);
 		const poll = getPoll(db, id, NOW)!;
