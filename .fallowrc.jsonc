@@ -2,6 +2,11 @@
 	// Fallow — codebase intelligence (dead code, duplication, complexity).
 	// Docs: https://docs.fallow.tools  ·  run: npm run analyze
 	"$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+	// The demo-media tooling (docs/media/*.mjs) is standalone marketing-asset
+	// generators, run by hand via docs/media/build.sh — not reachable from any
+	// app entry point, so the unused-files detector would flag them. Exclude the
+	// whole media tree (scripts + binaries) from analysis.
+	"ignorePatterns": ["docs/media/**"],
 	"rules": {
 		// SvelteKit + adapter-node bundle `svelte` and `@sveltejs/kit` at build
 		// time, so they correctly live in devDependencies and are never installed

@@ -6,6 +6,16 @@ live. **No accounts, for anyone, ever.** Polls self-destruct.
 
 "Jackbox for decisions."
 
+<p align="center">
+  <img src="docs/media/demo.webp" width="340"
+       alt="Create a poll, share the QR or 4-letter code, watch votes land live, a winner emerges" />
+</p>
+
+<p align="center">
+  <em>Create · share · vote · a winner emerges, then it self-destructs.</em><br />
+  <a href="docs/media/demo-social.mp4">Watch the captioned 20-second cut</a>
+</p>
+
 ## What makes it different
 
 - **Proximity gate (optional).** The creator can require voters to be within
