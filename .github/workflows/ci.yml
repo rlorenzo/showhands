@@ -104,11 +104,18 @@ jobs:
     needs: [checks, e2e]
     if: github.repository == 'rlorenzo/showhands' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Needed by the failure reporter below to open/comment the tracking issue.
+      issues: write
+    env:
+      # Job-level so the post-deploy check can gate on it too: a step's own env
+      # is not visible to that step's `if`.
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DROPLET: 24.199.115.162
+      SITE: https://showhands.rexlorenzo.com
     steps:
-      - name: Deploy over SSH (droplet runs deploy.sh via forced command)
-        env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DROPLET: 24.199.115.162
+      - name: Deploy over SSH (droplet runs the deploy via forced command)
         run: |
           if [ -z "${DEPLOY_SSH_KEY:-}" ]; then
             echo "DEPLOY_SSH_KEY not set - skipping deploy (checks still ran)."
@@ -119,6 +126,51 @@ jobs:
           chmod 600 ~/.ssh/id_deploy
           ssh-keyscan -H "$DROPLET" >> ~/.ssh/known_hosts 2>/dev/null
           # The CI key is pinned to a forced command on the droplet, so this
-          # connection runs deploy/deploy.sh regardless of the command sent.
+          # connection runs the deploy regardless of the command sent.
           ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             root@"$DROPLET" deploy
+
+      # Independent confirmation from outside the droplet: the public site must
+      # serve the commit this run pushed. deploy.sh asserts the same thing
+      # locally, but a green deploy job is not proof the public URL moved -
+      # Caddy, a stale process, or a half-applied restart all survive it.
+      - name: Verify the live site serves this commit
+        if: ${{ env.DEPLOY_SSH_KEY != '' }}
+        run: |
+          served=$(curl -fsS --max-time 20 "$SITE/healthz" | jq -r .commit)
+          echo "expected: $GITHUB_SHA"
+          echo "served:   $served"
+          [ "$served" = "$GITHUB_SHA" ] || {
+            echo "::error::Live site is serving $served, not $GITHUB_SHA"
+            exit 1
+          }
+
+      # A red run on a repo nobody watches goes unread, and a failed deploy
+      # leaves the site answering 200 with old code. File one issue and keep
+      # commenting on it, so repeats escalate in one thread instead of spamming.
+      - name: Report a failed deploy
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          body="Deploy failed for \`${GITHUB_SHA:0:7}\` on \`$GITHUB_REF_NAME\`.
+
+          Run: $RUN_URL
+
+          The site may still answer 200 while serving an older commit. Check what
+          is actually live with:
+
+              curl -s $SITE/healthz"
+          existing=$(gh issue list --label deploy-failure --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            # `|| true` for the already-exists case; stderr is kept so a real
+            # auth/permission failure is still visible in the log.
+            gh label create deploy-failure --color b60205 \
+              --description "Automated: a deploy to the droplet failed" || true
+            gh issue create --title "Deploy to droplet is failing" \
+              --label deploy-failure --body "$body"
+          fi
