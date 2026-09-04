@@ -112,6 +112,10 @@ jobs:
       # Job-level so the post-deploy check can gate on it too: a step's own env
       # is not visible to that step's `if`.
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      # known_hosts line(s) for the droplet, captured once by hand with
+      # `ssh-keyscan -t ed25519 24.199.115.162` and stored as a repo variable.
+      # Scanning at deploy time would trust whatever answered, every run.
+      DROPLET_HOST_KEY: ${{ vars.DROPLET_HOST_KEY }}
       DROPLET: 24.199.115.162
       SITE: https://showhands.rexlorenzo.com
     steps:
@@ -121,10 +125,14 @@ jobs:
             echo "DEPLOY_SSH_KEY not set - skipping deploy (checks still ran)."
             exit 0
           fi
+          if [ -z "${DROPLET_HOST_KEY:-}" ]; then
+            echo "::error::DROPLET_HOST_KEY repo variable not set; capture it with: ssh-keyscan -t ed25519 $DROPLET"
+            exit 1
+          fi
           install -m 700 -d ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          ssh-keyscan -H "$DROPLET" >> ~/.ssh/known_hosts 2>/dev/null
+          printf '%s\n' "$DROPLET_HOST_KEY" > ~/.ssh/known_hosts
           # The CI key is pinned to a forced command on the droplet, so this
           # connection runs the deploy regardless of the command sent.
           ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \

@@ -19,7 +19,8 @@ echo "==> Building app"
 npm run build >/dev/null
 
 echo "==> Starting throwaway server on :$PORT (rate limits off, scratch DB)"
-PORT=$PORT DATABASE_PATH="$OUT/demo.db" SHOWHANDS_SECRET="demo-recording-secret" \
+PORT=$PORT DATABASE_PATH="$OUT/demo.db" SHOWHANDS_SECRET="demo-recording-secret-not-for-prod" \
+  SHOWHANDS_NO_PROXY=1 \
   SHOWHANDS_DISABLE_RATE_LIMITS=1 ORIGIN="https://showhands.rexlorenzo.com" \
   node build/index.js >"$OUT/server.log" 2>&1 &
 SERVER=$!

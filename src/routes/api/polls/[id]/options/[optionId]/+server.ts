@@ -6,8 +6,8 @@ import type { RequestHandler } from './$types';
 
 /** Creator moderation: remove a single option and its votes (e.g. an
  * offensive write-in) without nuking the whole poll. */
-export const DELETE: RequestHandler = async ({ params, cookies }) => {
-	const ctx = requireCreatorPoll(params.id, cookies, 'remove options');
+export const DELETE: RequestHandler = async ({ params, cookies, getClientAddress }) => {
+	const ctx = requireCreatorPoll(params.id, getClientAddress(), cookies, 'remove options');
 	if (ctx instanceof Response) return ctx;
 
 	if (effectiveStatus(ctx.poll) === 'closed') {

@@ -19,8 +19,9 @@ export default defineConfig({
 		env: {
 			PORT: '4300',
 			DATABASE_PATH: 'data/e2e-test.db',
-			SHOWHANDS_SECRET: 'e2e-secret-not-for-production',
-			SHOWHANDS_DISABLE_RATE_LIMITS: '1'
+			SHOWHANDS_SECRET: 'e2e-secret-not-for-production-use',
+			SHOWHANDS_DISABLE_RATE_LIMITS: '1',
+			SHOWHANDS_NO_PROXY: '1'
 		},
 		reuseExistingServer: false,
 		timeout: 120_000

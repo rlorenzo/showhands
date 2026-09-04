@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-process.env.SHOWHANDS_SECRET = 'test-secret-for-unit-tests-only';
+process.env.SHOWHANDS_SECRET = 'test-secret-for-unit-tests-only-0';
 
 import type { Database } from 'better-sqlite3';
 import { GRACE_SECONDS, WRITEIN_TOTAL_MAX } from '$lib/validation';

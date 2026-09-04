@@ -23,7 +23,7 @@ APP_USER="showhands"
 BRANCH="main"
 
 if [[ $EUID -ne 0 ]]; then
-	echo "showhands-deploy must run as root (it su's to '$APP_USER')." >&2
+	echo "showhands-deploy must run as root (the CI forced command; it drops to '$APP_USER')." >&2
 	exit 1
 fi
 
@@ -35,4 +35,8 @@ run_as git -C "$APP_DIR" fetch --prune origin
 # live in the checkout and are gitignored.
 run_as git -C "$APP_DIR" reset --hard "origin/$BRANCH"
 
-exec "$APP_DIR/deploy/deploy.sh"
+# Drop privileges here. deploy.sh is checked out by, and writable to, the app
+# user; running it as root would hand root to anyone who gets code execution as
+# that user. The one root step it needs (systemctl restart) is granted through
+# deploy/sudoers.
+exec sudo -u "$APP_USER" -H "$APP_DIR/deploy/deploy.sh"

@@ -3,8 +3,8 @@ import { requireCreatorPoll } from '$lib/server/creator';
 import { closePoll, getPoll, publishResults } from '$lib/server/polls';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ params, cookies }) => {
-	const ctx = requireCreatorPoll(params.id, cookies, 'close it');
+export const POST: RequestHandler = async ({ params, cookies, getClientAddress }) => {
+	const ctx = requireCreatorPoll(params.id, getClientAddress(), cookies, 'close it');
 	if (ctx instanceof Response) return ctx;
 
 	closePoll(ctx.db, ctx.pollId);

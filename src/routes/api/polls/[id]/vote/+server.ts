@@ -3,12 +3,12 @@ import type { Database } from 'better-sqlite3';
 import { getDb } from '$lib/server/db';
 import { checkGeofence, isValidLatLng } from '$lib/server/geo';
 import { normalizePollId } from '$lib/server/ids';
+import { lookupPollOr404 } from '$lib/server/lookup';
 import {
 	addWriteInOption,
 	castVote,
 	effectiveStatus,
 	getOptions,
-	getPoll,
 	type PollRow,
 	pruneOrphanWriteins,
 	publishResults,
@@ -119,10 +119,7 @@ export const POST: RequestHandler = async ({ params, request, locals, getClientA
 	}
 
 	const db = getDb();
-	const poll = getPoll(db, pollId);
-	if (!poll) {
-		return json({ error: 'Poll not found.' }, { status: 404 });
-	}
+	const { poll } = lookupPollOr404(db, pollId, ip);
 	if (effectiveStatus(poll) === 'closed') {
 		return json(
 			{ error: 'This poll is closed.' },

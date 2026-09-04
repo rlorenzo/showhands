@@ -4,8 +4,8 @@ import { deletePoll, getPoll, publishResults, updateRadius } from '$lib/server/p
 import { isValidRadius } from '$lib/validation';
 import type { RequestHandler } from './$types';
 
-export const DELETE: RequestHandler = async ({ params, cookies }) => {
-	const ctx = requireCreatorPoll(params.id, cookies, 'delete it');
+export const DELETE: RequestHandler = async ({ params, cookies, getClientAddress }) => {
+	const ctx = requireCreatorPoll(params.id, getClientAddress(), cookies, 'delete it');
 	if (ctx instanceof Response) return ctx;
 
 	deletePoll(ctx.db, ctx.pollId);
@@ -14,8 +14,8 @@ export const DELETE: RequestHandler = async ({ params, cookies }) => {
 };
 
 /** Creator can widen/narrow the geofence radius (e.g. friends indoors getting rejected). */
-export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
-	const ctx = requireCreatorPoll(params.id, cookies, 'edit it');
+export const PATCH: RequestHandler = async ({ params, request, cookies, getClientAddress }) => {
+	const ctx = requireCreatorPoll(params.id, getClientAddress(), cookies, 'edit it');
 	if (ctx instanceof Response) return ctx;
 
 	let body: Record<string, unknown>;
