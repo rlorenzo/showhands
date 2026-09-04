@@ -223,7 +223,7 @@
 	// Map a failed vote response to the right UI state.
 	async function handleVoteFailure(
 		res: Response,
-		data: { error?: string; distanceM?: number; radiusM?: number }
+		data: { error?: string; message?: string; distanceM?: number; radiusM?: number }
 	): Promise<void> {
 		if (
 			res.status === 403 &&
