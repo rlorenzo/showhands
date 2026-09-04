@@ -78,8 +78,9 @@ acceptable by design.
 The production instance runs bare-metal on a shared DigitalOcean droplet at
 https://showhands.rexlorenzo.com (systemd + Caddy, no Docker): see `deploy/`
 for the service unit, Caddy site block, env template, and the `deploy.sh`
-that CI runs over SSH on every push to `main`. `GET /healthz` returns `ok`
-and exercises the database; point uptime monitors at it.
+that CI runs over SSH on every push to `main`. `GET /healthz` exercises the
+database and returns `{"status":"ok","commit":"<sha>"}`, so the deploy gate can
+check which commit is live; point uptime monitors at it.
 
 ## Anti-abuse posture (documented tradeoffs)
 
