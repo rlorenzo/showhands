@@ -244,7 +244,8 @@
 			if (snap.ok) results = await snap.json();
 			return;
 		}
-		voteError = data.error ?? 'Vote failed. Try again.';
+		// Route-level 404/429 from the shared lookup arrive as SvelteKit `{ message }`.
+		voteError = data.error ?? data.message ?? 'Vote failed. Try again.';
 	}
 
 	async function submitVote() {

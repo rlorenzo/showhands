@@ -48,15 +48,21 @@ export const GET: RequestHandler = async ({ params, getClientAddress }) => {
 				}
 			};
 
-			send(resultsPayload(db, poll));
-			unsubscribe = subscribe(pollId, send);
-			keepalive = setInterval(() => {
-				try {
-					controller.enqueue(encoder.encode(`: keepalive\n\n`));
-				} catch {
-					cleanup();
-				}
-			}, KEEPALIVE_MS);
+			try {
+				send(resultsPayload(db, poll));
+				unsubscribe = subscribe(pollId, send);
+				keepalive = setInterval(() => {
+					try {
+						controller.enqueue(encoder.encode(`: keepalive\n\n`));
+					} catch {
+						cleanup();
+					}
+				}, KEEPALIVE_MS);
+			} catch (err) {
+				// A SQLite throw here would otherwise leak this IP's stream slot for good.
+				cleanup();
+				throw err;
+			}
 		},
 		cancel: cleanup
 	});
