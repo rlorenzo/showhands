@@ -3,16 +3,24 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 let secret: Buffer | null = null;
+const MIN_SECRET_CHARS = 32;
 
 /**
  * HMAC key for device hashes, creator tokens, and cookie signatures.
  * Uses SHOWHANDS_SECRET when set; otherwise generates one and persists it
- * next to the database so restarts don't invalidate every cookie.
+ * next to the database so restarts don't invalidate every cookie. A set but
+ * too-short secret is an error, not a silent fallback: the operator believes
+ * they configured it.
  */
 function getSecret(): Buffer {
 	if (secret) return secret;
 	const env = process.env.SHOWHANDS_SECRET;
-	if (env && env.length >= 16) {
+	if (env !== undefined) {
+		if (env.length < MIN_SECRET_CHARS) {
+			throw new Error(
+				`SHOWHANDS_SECRET must be at least ${MIN_SECRET_CHARS} characters (got ${env.length}). Generate one with: openssl rand -hex 32`
+			);
+		}
 		secret = Buffer.from(env, 'utf8');
 		return secret;
 	}
@@ -30,6 +38,11 @@ function getSecret(): Buffer {
 	fs.mkdirSync(dir, { recursive: true });
 	fs.writeFileSync(file, secret.toString('hex'), { mode: 0o600 });
 	return secret;
+}
+
+/** Load (and validate) the secret at boot so misconfiguration fails at startup, not on the first request. */
+export function ensureSecret(): void {
+	getSecret();
 }
 
 function hmacHex(value: string): string {

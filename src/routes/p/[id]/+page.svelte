@@ -223,7 +223,7 @@
 	// Map a failed vote response to the right UI state.
 	async function handleVoteFailure(
 		res: Response,
-		data: { error?: string; distanceM?: number; radiusM?: number }
+		data: { error?: string; message?: string; distanceM?: number; radiusM?: number }
 	): Promise<void> {
 		if (
 			res.status === 403 &&
@@ -244,7 +244,8 @@
 			if (snap.ok) results = await snap.json();
 			return;
 		}
-		voteError = data.error ?? 'Vote failed. Try again.';
+		// Route-level 404/429 from the shared lookup arrive as SvelteKit `{ message }`.
+		voteError = data.error ?? data.message ?? 'Vote failed. Try again.';
 	}
 
 	async function submitVote() {

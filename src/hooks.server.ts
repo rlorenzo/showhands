@@ -1,8 +1,13 @@
 import type { Handle } from '@sveltejs/kit';
-import { building } from '$app/environment';
+import { building, dev } from '$app/environment';
 import { getDb } from '$lib/server/db';
 import { sweep } from '$lib/server/polls';
-import { newRandomToken, signCookieValue, verifyCookieValue } from '$lib/server/tokens';
+import {
+	ensureSecret,
+	newRandomToken,
+	signCookieValue,
+	verifyCookieValue
+} from '$lib/server/tokens';
 
 const DEVICE_COOKIE = 'soh_device';
 
@@ -10,6 +15,17 @@ const DEVICE_COOKIE = 'soh_device';
 const g = globalThis as typeof globalThis & { __sohSweepStarted?: boolean };
 if (!building && !g.__sohSweepStarted) {
 	g.__sohSweepStarted = true;
+	// Behind a reverse proxy the socket peer is always the proxy, so with
+	// ADDRESS_HEADER unset every per-IP rate limit collapses into one shared
+	// bucket (no throttling, and 30 bad codes lock everyone out). Refuse to
+	// start silently misconfigured. SHOWHANDS_NO_PROXY=1 opts out when clients
+	// really do connect directly (bare Docker port mapping, local preview).
+	if (!dev && !process.env.ADDRESS_HEADER && process.env.SHOWHANDS_NO_PROXY !== '1') {
+		throw new Error(
+			'ADDRESS_HEADER is unset. Behind a reverse proxy set ADDRESS_HEADER=X-Forwarded-For and XFF_DEPTH=1; if clients connect directly set SHOWHANDS_NO_PROXY=1.'
+		);
+	}
+	ensureSecret();
 	try {
 		sweep(getDb());
 	} catch (err) {

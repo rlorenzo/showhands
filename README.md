@@ -69,7 +69,8 @@ Configuration (all optional):
 | ------------------ | ------------------------------------ | ---------------------------------- |
 | `PORT`             | `3000`                               | HTTP port                          |
 | `DATABASE_PATH`    | `./data/showhands.db`                | SQLite file location               |
-| `SHOWHANDS_SECRET` | generated & persisted next to the DB | HMAC key for device/creator tokens |
+| `SHOWHANDS_SECRET` | generated & persisted next to the DB | HMAC key for device/creator tokens (32+ chars when set) |
+| `ADDRESS_HEADER`   | none                                 | `X-Forwarded-For` behind a reverse proxy (with `XFF_DEPTH=1`); required in production unless `SHOWHANDS_NO_PROXY=1` |
 
 Deploys as one container (Fly.io, Railway, anything that runs Node). Mount a
 volume at `./data` if you want polls to survive restarts — losing them is
@@ -78,8 +79,9 @@ acceptable by design.
 The production instance runs bare-metal on a shared DigitalOcean droplet at
 https://showhands.rexlorenzo.com (systemd + Caddy, no Docker): see `deploy/`
 for the service unit, Caddy site block, env template, and the `deploy.sh`
-that CI runs over SSH on every push to `main`. `GET /healthz` returns `ok`
-and exercises the database; point uptime monitors at it.
+that CI runs over SSH on every push to `main`. `GET /healthz` exercises the
+database and returns `{"status":"ok","commit":"<sha>"}`, so the deploy gate can
+check which commit is live; point uptime monitors at it.
 
 ## Anti-abuse posture (documented tradeoffs)
 

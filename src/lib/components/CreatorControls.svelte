@@ -50,7 +50,7 @@
 			const res = await fetch(`/api/polls/${poll.id}/options/${id}`, { method: 'DELETE' });
 			const data = await res.json();
 			if (!res.ok) {
-				removeError = data.error ?? 'Could not remove the option. Try again.';
+				removeError = data.error ?? data.message ?? 'Could not remove the option. Try again.';
 			} else {
 				onResults(data.results);
 				confirmRemove = null;

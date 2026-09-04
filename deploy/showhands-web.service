@@ -19,11 +19,17 @@ ExecStart=/usr/bin/node build/index.js
 Restart=always
 RestartSec=3
 
-# Hardening
+# Hardening. strict makes the whole filesystem read-only, including this
+# checkout, so a compromised process cannot rewrite deploy/deploy.sh; the app
+# only writes the SQLite files and secret.key under /opt/showhands/data.
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectSystem=full
+ProtectSystem=strict
+ReadWritePaths=/opt/showhands/data
 ProtectHome=true
+ProtectKernelTunables=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallFilter=@system-service
 
 [Install]
 WantedBy=multi-user.target

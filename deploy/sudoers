@@ -1,0 +1,4 @@
+# The one root action the deploy needs. Everything else in deploy.sh runs as
+# the app user, so code execution as that user cannot escalate on the next deploy.
+# Install: install -m 440 -o root -g root deploy/sudoers /etc/sudoers.d/showhands && visudo -c
+showhands ALL=(root) NOPASSWD: /usr/bin/systemctl restart showhands-web.service
