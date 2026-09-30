@@ -1,27 +1,21 @@
 {
 	"name": "show-of-hands",
-	"private": true,
 	"version": "0.1.0",
+	"private": true,
 	"type": "module",
-	"allowScripts": {
-		"better-sqlite3@12.11.1": true
-	},
-	"overrides": {
-		"cookie": "^0.7.0"
-	},
 	"scripts": {
-		"dev": "vite dev",
-		"build": "vite build",
-		"preview": "vite preview",
+		"dev": "vp dev",
+		"build": "vp build",
+		"preview": "vp preview",
 		"start": "node build/index.js",
 		"prepare": "svelte-kit sync || echo ''; git config core.hooksPath .githooks || true",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"test": "npm run test:unit -- --run",
-		"test:unit": "vitest",
+		"test": "vp test run",
+		"test:unit": "vp test",
 		"test:e2e": "playwright test",
-		"lint": "biome check .",
-		"format": "biome check --write .",
+		"lint": "vp lint && vp fmt --check",
+		"format": "vp fmt",
 		"analyze": "fallow",
 		"analyze:gate": "fallow audit"
 	},
@@ -30,7 +24,6 @@
 		"qrcode": "^1.5.4"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.5.2",
 		"@playwright/test": "^1.56.1",
 		"@sveltejs/adapter-node": "^5.3.3",
 		"@sveltejs/kit": "^2.70.2",
@@ -42,7 +35,14 @@
 		"svelte": "^5.56.1",
 		"svelte-check": "^4.6.0",
 		"typescript": "^6.0.3",
-		"vite": "^8.0.16",
-		"vitest": "^4.1.11"
+		"vite": "npm:@voidzero-dev/vite-plus-core@1.0.0",
+		"vite-plus": "1.0.0"
+	},
+	"overrides": {
+		"cookie": "^0.7.0",
+		"vite": "npm:@voidzero-dev/vite-plus-core@1.0.0"
+	},
+	"allowScripts": {
+		"better-sqlite3@12.11.1": true
 	}
 }

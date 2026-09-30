@@ -45,7 +45,7 @@ npm run dev
 ## Test
 
 ```bash
-npm run test        # vitest unit tests (haversine, IDs, sanitization, sweep, rate limits)
+npm run test        # unit tests (haversine, IDs, sanitization, sweep, rate limits)
 npm run test:e2e    # Playwright end-to-end (create / vote / geofence / close flows)
 ```
 

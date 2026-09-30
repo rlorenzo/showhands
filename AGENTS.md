@@ -9,11 +9,11 @@ polls self-destruct. No accounts, ever.
 ```bash
 npm run dev          # Vite dev server
 npm run build        # production build (adapter-node → build/)
-npm run test         # vitest unit tests (run once)
+npm run test         # vp test unit tests (run once)
 npm run test:e2e     # Playwright end-to-end
 npm run check        # svelte-check + TypeScript
-npm run lint         # Biome check
-npm run format       # Biome check --write
+npm run lint         # vp lint + vp fmt --check
+npm run format       # vp fmt
 ```
 
 CI deploys `main` to https://showhands.rexlorenzo.com (bare-metal droplet,
@@ -67,7 +67,7 @@ Practical rules that follow:
 
 ## Conventions
 
-- Biome for lint + format (tabs, single quotes in TS; run `npm run format`
+- Vite+ (Oxlint + Oxfmt) for lint + format (tabs, single quotes in TS; run `npm run format`
   before committing).
 - Svelte 5 runes only — no legacy `$:` reactive statements or stores where
   runes suffice.

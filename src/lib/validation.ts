@@ -38,7 +38,7 @@ export function sanitizeText(raw: unknown, maxLength: number): string {
 	return (
 		text
 			.replace(/[<>]/g, '')
-			// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping control characters is this function's job
+			// oxlint-disable-next-line no-control-regex -- stripping control characters is this function's job
 			.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g, '')
 			.replace(/\s+/g, ' ')
 			.trim()
