@@ -10,8 +10,8 @@ set -e
 bin="$(git rev-parse --show-toplevel)/node_modules/.bin"
 
 # 1) Lint + format check on staged files only (milliseconds).
-echo "• biome (staged files)…"
-"$bin/biome" check --staged --no-errors-on-unmatched
+echo "• vp staged (lint + format)…"
+"$bin/vp" staged
 
 # 2) Regression gate: fails only on complexity / duplication / dead-code that
 #    THIS change introduces — inherited findings are excluded. Compares the
