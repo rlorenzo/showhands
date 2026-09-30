@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 
 import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vitest/config';
+import { defineConfig, lazyPlugins } from 'vite-plus';
 
 // The commit this bundle was built from, baked in at build time and served by
 // /healthz so a stale deploy can be told apart from a fresh one. Falls back to
@@ -27,7 +27,34 @@ function buildVersion(): string {
 }
 
 export default defineConfig({
-	plugins: [
+	// Ported from biome.json (tabs, single quotes, width 100, no trailing commas).
+	fmt: {
+		useTabs: true,
+		singleQuote: true,
+		printWidth: 100,
+		trailingComma: 'none',
+		ignorePatterns: [
+			'.svelte-kit',
+			'build',
+			'static',
+			'data',
+			'package-lock.json',
+			'*.svelte',
+			'*.md'
+		]
+	},
+	staged: { '*.{js,mjs,ts,svelte,css,json}': 'vp check --fix' },
+	lint: {
+		ignorePatterns: ['.svelte-kit', 'build', 'static', 'data'],
+		options: { typeAware: true },
+		rules: {
+			'no-unused-vars': 'error'
+		},
+		overrides: [
+			{ files: ['**/*.svelte'], rules: { 'no-unused-vars': 'off', 'prefer-const': 'off' } }
+		]
+	},
+	plugins: lazyPlugins(() => [
 		sveltekit({
 			compilerOptions: {
 				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
@@ -54,7 +81,7 @@ export default defineConfig({
 				}
 			}
 		})
-	],
+	]),
 	test: {
 		include: ['src/**/*.{test,spec}.{js,ts}'],
 		environment: 'node'

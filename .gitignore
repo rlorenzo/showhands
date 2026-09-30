@@ -38,3 +38,4 @@ vite.config.ts.timestamp-*
 
 # Fallow analysis cache
 /.fallow
+.vitest/
