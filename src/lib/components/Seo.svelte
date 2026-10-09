@@ -26,7 +26,7 @@
 		noindex = false
 	}: Props = $props();
 
-	// adapter-node resolves url.origin from the ORIGIN env in production, so
+	// url.origin comes from `paths.origin` in vite.config.ts in production, so
 	// these come out as the real https canonical/absolute URLs unfurlers need.
 	const origin = $derived(page.url.origin);
 	const canonical = $derived(origin + page.url.pathname);

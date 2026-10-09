@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { requireCreatorPoll } from '$lib/server/creator';
-import { deletePoll, getPoll, publishResults, updateRadius } from '$lib/server/polls';
-import { isValidRadius } from '$lib/validation';
+import { requireCreatorPoll } from '#lib/server/creator.js';
+import { deletePoll, getPoll, publishResults, updateRadius } from '#lib/server/polls.js';
+import { isValidRadius } from '#lib/validation.js';
 import type { RequestHandler } from './$types';
 
 export const DELETE: RequestHandler = async ({ params, cookies, getClientAddress }) => {

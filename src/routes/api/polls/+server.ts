@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { getDb } from '$lib/server/db';
-import { isValidLatLng } from '$lib/server/geo';
-import { createPoll } from '$lib/server/polls';
-import { allow, LIMITS } from '$lib/server/ratelimit';
+import { getDb } from '#lib/server/db.js';
+import { isValidLatLng } from '#lib/server/geo.js';
+import { createPoll } from '#lib/server/polls.js';
+import { allow, LIMITS } from '#lib/server/ratelimit.js';
 import {
 	DEFAULT_EXPIRY,
 	EXPIRY_CHOICES,
@@ -13,7 +13,7 @@ import {
 	OPTIONS_MIN,
 	QUESTION_MAX,
 	sanitizeText
-} from '$lib/validation';
+} from '#lib/validation.js';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, cookies, getClientAddress, url }) => {

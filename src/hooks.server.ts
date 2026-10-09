@@ -1,13 +1,13 @@
-import type { Handle } from '@sveltejs/kit';
-import { building, dev } from '$app/environment';
-import { getDb } from '$lib/server/db';
-import { sweep } from '$lib/server/polls';
+import type { Handle } from '@sveltejs/kit/hooks';
+import { building, dev } from '$app/env';
+import { getDb } from '#lib/server/db.js';
+import { sweep } from '#lib/server/polls.js';
 import {
 	ensureSecret,
 	newRandomToken,
 	signCookieValue,
 	verifyCookieValue
-} from '$lib/server/tokens';
+} from '#lib/server/tokens.js';
 
 const DEVICE_COOKIE = 'soh_device';
 

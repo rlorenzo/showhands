@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { PollOptionView, PollView } from '$lib/types';
-	import { NAME_MAX, OPTION_MAX, WRITEIN_TOTAL_MAX } from '$lib/validation';
+	import type { PollOptionView, PollView } from '#lib/types.js';
+	import { NAME_MAX, OPTION_MAX, WRITEIN_TOTAL_MAX } from '#lib/validation.js';
 
 	let {
 		poll,

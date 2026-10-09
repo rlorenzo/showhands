@@ -3,13 +3,13 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import CreatorControls from '$lib/components/CreatorControls.svelte';
-	import PollResults from '$lib/components/PollResults.svelte';
-	import Seo from '$lib/components/Seo.svelte';
-	import SharePanel from '$lib/components/SharePanel.svelte';
-	import VoteForm from '$lib/components/VoteForm.svelte';
-	import type { ResultsView } from '$lib/types';
-	import { WRITEIN_TOTAL_MAX } from '$lib/validation';
+	import CreatorControls from '#lib/components/CreatorControls.svelte';
+	import PollResults from '#lib/components/PollResults.svelte';
+	import Seo from '#lib/components/Seo.svelte';
+	import SharePanel from '#lib/components/SharePanel.svelte';
+	import VoteForm from '#lib/components/VoteForm.svelte';
+	import type { ResultsView } from '#lib/types.js';
+	import { WRITEIN_TOTAL_MAX } from '#lib/validation.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -84,8 +84,7 @@
 			// strip the flag so refresh/back doesn't reopen
 			goto(resolve('/p/[id]', { id: poll.id }), {
 				replaceState: true,
-				keepFocus: true,
-				noScroll: true
+				reset: false
 			});
 		}
 

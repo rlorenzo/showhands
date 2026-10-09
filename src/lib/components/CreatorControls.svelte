@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto, refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import type { PollOptionView, PollView, ResultsView } from '$lib/types';
-	import { OPTIONS_MIN, RADII_M } from '$lib/validation';
+	import type { PollOptionView, PollView, ResultsView } from '#lib/types.js';
+	import { OPTIONS_MIN, RADII_M } from '#lib/validation.js';
 
 	let {
 		poll,
@@ -67,7 +67,7 @@
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ radiusM: r })
 		});
-		await invalidateAll();
+		await refreshAll();
 	}
 </script>
 

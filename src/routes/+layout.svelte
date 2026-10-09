@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { resolve } from '$app/paths';
-	import favicon from '$lib/assets/favicon.svg';
+	import favicon from '#lib/assets/favicon.svg';
 
 	let { children } = $props();
 </script>
@@ -22,7 +22,7 @@
 		{@render children()}
 	</main>
 	<footer class="site-footer">
-		<a href={resolve('/about')}>How it works &amp; privacy</a>
+		<a href={resolve('about')}>How it works & privacy</a>
 		<iframe
 			class="sponsor-btn"
 			src="https://github.com/sponsors/rlorenzo/button"

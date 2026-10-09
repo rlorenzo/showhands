@@ -62,6 +62,10 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 			adapter: adapter(),
+			// adapter-node no longer reads the ORIGIN env var at runtime; the public origin
+			// (Caddy fronts the app) is configured here instead. ORIGIN, if set at build
+			// time, wins so staging builds can override it.
+			paths: { origin: process.env.ORIGIN ?? 'https://showhands.rexlorenzo.com' },
 			// Doubles as SvelteKit's app version, so the `updated` store tracks the
 			// deployed commit instead of a build timestamp.
 			version: { name: buildVersion() },

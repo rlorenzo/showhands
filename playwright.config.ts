@@ -18,6 +18,9 @@ export default defineConfig({
 		port: 4300,
 		env: {
 			PORT: '4300',
+			// paths.origin is baked in at build time (vite.config.ts); pin it to the test
+			// server so canonical/og URLs match the origin the browser actually uses.
+			ORIGIN: 'http://localhost:4300',
 			DATABASE_PATH: 'data/e2e-test.db',
 			SHOWHANDS_SECRET: 'e2e-secret-not-for-production-use',
 			SHOWHANDS_DISABLE_RATE_LIMITS: '1',

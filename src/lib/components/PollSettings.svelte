@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { EXPIRY_CHOICES, type ExpiryKey, RADII_M } from '$lib/validation';
+	import { EXPIRY_CHOICES, type ExpiryKey, RADII_M } from '#lib/validation.js';
 
 	let {
 		isAnonymous = $bindable(),
