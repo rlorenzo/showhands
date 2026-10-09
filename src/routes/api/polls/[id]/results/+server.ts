@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { getDb } from '$lib/server/db';
-import { lookupPollOr404 } from '$lib/server/lookup';
-import { resultsPayload } from '$lib/server/polls';
+import { getDb } from '#lib/server/db.js';
+import { lookupPollOr404 } from '#lib/server/lookup.js';
+import { resultsPayload } from '#lib/server/polls.js';
 import type { RequestHandler } from './$types';
 
 /** JSON snapshot of results — used as the polling fallback when SSE fails. */

@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { Database } from 'better-sqlite3';
-import { getDb } from '$lib/server/db';
-import { checkGeofence, isValidLatLng } from '$lib/server/geo';
-import { normalizePollId } from '$lib/server/ids';
-import { lookupPollOr404 } from '$lib/server/lookup';
+import { getDb } from '#lib/server/db.js';
+import { checkGeofence, isValidLatLng } from '#lib/server/geo.js';
+import { normalizePollId } from '#lib/server/ids.js';
+import { lookupPollOr404 } from '#lib/server/lookup.js';
 import {
 	addWriteInOption,
 	castVote,
@@ -13,10 +13,10 @@ import {
 	pruneOrphanWriteins,
 	publishResults,
 	resultsPayload
-} from '$lib/server/polls';
-import { allow, LIMITS } from '$lib/server/ratelimit';
-import { deviceHashForPoll } from '$lib/server/tokens';
-import { NAME_MAX, OPTION_MAX, sanitizeText, WRITEIN_TOTAL_MAX } from '$lib/validation';
+} from '#lib/server/polls.js';
+import { allow, LIMITS } from '#lib/server/ratelimit.js';
+import { deviceHashForPoll } from '#lib/server/tokens.js';
+import { NAME_MAX, OPTION_MAX, sanitizeText, WRITEIN_TOTAL_MAX } from '#lib/validation.js';
 import type { RequestHandler } from './$types';
 
 /**

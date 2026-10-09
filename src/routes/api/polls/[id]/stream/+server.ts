@@ -1,7 +1,7 @@
-import { type ResultsPayload, subscribe } from '$lib/server/broadcast';
-import { getDb } from '$lib/server/db';
-import { lookupPollOr404 } from '$lib/server/lookup';
-import { resultsPayload } from '$lib/server/polls';
+import { type ResultsPayload, subscribe } from '#lib/server/broadcast.js';
+import { getDb } from '#lib/server/db.js';
+import { lookupPollOr404 } from '#lib/server/lookup.js';
+import { resultsPayload } from '#lib/server/polls.js';
 import type { RequestHandler } from './$types';
 
 const KEEPALIVE_MS = 25_000; // iOS Safari reaps quiet SSE connections; comment every 25s

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vite-plus/test';
 process.env.SHOWHANDS_SECRET = 'test-secret-for-unit-tests-only-0';
 
 import type { Database } from 'better-sqlite3';
-import { GRACE_SECONDS, WRITEIN_TOTAL_MAX } from '$lib/validation';
+import { GRACE_SECONDS, WRITEIN_TOTAL_MAX } from '#lib/validation.js';
 import { createDatabase } from './db';
 import {
 	addWriteInOption,

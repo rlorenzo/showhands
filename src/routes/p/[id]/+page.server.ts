@@ -1,5 +1,5 @@
-import { getDb } from '$lib/server/db';
-import { lookupPollOr404 } from '$lib/server/lookup';
+import { getDb } from '#lib/server/db.js';
+import { lookupPollOr404 } from '#lib/server/lookup.js';
 import {
 	getDeviceVote,
 	getOptions,
@@ -7,8 +7,8 @@ import {
 	resultsPayload,
 	toPollView,
 	verifyCreatorToken
-} from '$lib/server/polls';
-import { deviceHashForPoll } from '$lib/server/tokens';
+} from '#lib/server/polls.js';
+import { deviceHashForPoll } from '#lib/server/tokens.js';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, getClientAddress }) => {

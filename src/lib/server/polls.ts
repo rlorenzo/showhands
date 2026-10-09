@@ -1,6 +1,6 @@
 import type { Database } from 'better-sqlite3';
-import type { PollView } from '$lib/types';
-import { GRACE_SECONDS, OPTIONS_MIN, WRITEIN_TOTAL_MAX } from '$lib/validation';
+import type { PollView } from '#lib/types.js';
+import { GRACE_SECONDS, OPTIONS_MIN, WRITEIN_TOTAL_MAX } from '#lib/validation.js';
 import { closeChannel, publish, type ResultsPayload } from './broadcast';
 import { roundCoord } from './geo';
 import { generatePollId } from './ids';

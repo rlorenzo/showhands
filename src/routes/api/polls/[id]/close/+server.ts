@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { requireCreatorPoll } from '$lib/server/creator';
-import { closePoll, getPoll, publishResults } from '$lib/server/polls';
+import { requireCreatorPoll } from '#lib/server/creator.js';
+import { closePoll, getPoll, publishResults } from '#lib/server/polls.js';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ params, cookies, getClientAddress }) => {

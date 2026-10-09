@@ -1,6 +1,6 @@
 import type { RequestHandler } from '@sveltejs/kit';
-import { version } from '$app/environment';
-import { getDb } from '$lib/server/db';
+import { version } from '$app/env';
+import { getDb } from '#lib/server/db.js';
 
 /** Cheap liveness endpoint for deploy gates and uptime monitors.
  * The trivial query catches a corrupted or locked database, not just

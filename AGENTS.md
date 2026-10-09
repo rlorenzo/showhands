@@ -21,7 +21,7 @@ systemd + Caddy — see `deploy/`). `GET /healthz` is the uptime probe.
 
 ## Stack & architecture
 
-- SvelteKit 2 / Svelte 5 (runes: `$state`, `$derived`, `$props`), TypeScript,
+- SvelteKit 3 / Svelte 5 (runes: `$state`, `$derived`, `$props`), TypeScript,
   single Node server via `@sveltejs/adapter-node`.
 - SQLite through `better-sqlite3` (`src/lib/server/db.ts`); data is
   disposable by design.

@@ -1,7 +1,12 @@
 import { json } from '@sveltejs/kit';
-import { requireCreatorPoll } from '$lib/server/creator';
-import { deleteOption, effectiveStatus, publishResults, resultsPayload } from '$lib/server/polls';
-import { OPTIONS_MIN } from '$lib/validation';
+import { requireCreatorPoll } from '#lib/server/creator.js';
+import {
+	deleteOption,
+	effectiveStatus,
+	publishResults,
+	resultsPayload
+} from '#lib/server/polls.js';
+import { OPTIONS_MIN } from '#lib/validation.js';
 import type { RequestHandler } from './$types';
 
 /** Creator moderation: remove a single option and its votes (e.g. an

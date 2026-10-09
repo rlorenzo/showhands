@@ -1,6 +1,6 @@
 <script lang="ts">
-	import ResultBars from '$lib/components/ResultBars.svelte';
-	import type { PollOptionView, ResultsView } from '$lib/types';
+	import ResultBars from '#lib/components/ResultBars.svelte';
+	import type { PollOptionView, ResultsView } from '#lib/types.js';
 
 	let {
 		liveOptions,

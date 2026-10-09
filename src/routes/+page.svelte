@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import PollSettings from '$lib/components/PollSettings.svelte';
-	import Seo from '$lib/components/Seo.svelte';
+	import PollSettings from '#lib/components/PollSettings.svelte';
+	import Seo from '#lib/components/Seo.svelte';
 	import {
 		DEFAULT_EXPIRY,
 		type ExpiryKey,
@@ -10,7 +10,7 @@
 		OPTIONS_MAX,
 		OPTIONS_MIN,
 		QUESTION_MAX
-	} from '$lib/validation';
+	} from '#lib/validation.js';
 
 	let question = $state('');
 	let options = $state(['', '']);
